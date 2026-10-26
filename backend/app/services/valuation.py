@@ -7,10 +7,15 @@
 """
 from __future__ import annotations
 
+import base64
+import json
+import os
+import re
 import threading
 import time
 from bisect import bisect_right
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -182,17 +187,48 @@ def export_snapshot() -> dict:
     return {"generatedAt": db.now(), "objects": out}
 
 
+def _github_token() -> str | None:
+    """私有仓库的 raw 地址读不到，得带令牌：设置里填的 > 环境变量 > 本机 git 凭证"""
+    for src in (db.get_setting("github_token", ""),
+                os.environ.get("GITHUB_TOKEN"), os.environ.get("GH_TOKEN")):
+        if isinstance(src, str) and src.strip():
+            return src.strip()
+    p = Path.home() / ".git-credentials"
+    if p.exists():
+        m = re.search(r"https://[^:@/]*:([^@/]+)@github\.com",
+                      p.read_text(encoding="utf-8", errors="ignore"))
+        if m:
+            return m.group(1)
+    return None
+
+
+def _fetch_snapshot() -> tuple[Any, str]:
+    """先试公开 raw，再用令牌走 API；返回 (快照 dict | None, 来源/错因)"""
+    headers = {"User-Agent": "biaoge-local/1.0"}
+    try:
+        resp = requests.get(config.GITHUB_SNAPSHOT_URL, headers=headers, timeout=30)
+        if resp.status_code == 200:
+            return resp.json(), "raw"
+        why = f"HTTP {resp.status_code}"
+        tok = _github_token()
+        if not tok:
+            return None, f"{why}，本机也没有可用的 GitHub 令牌（私有仓库读不到 raw）"
+        r = requests.get(config.GITHUB_SNAPSHOT_API, timeout=30,
+                         headers={**headers, "Authorization": f"token {tok}"})
+        if r.status_code != 200:
+            return None, f"{why}，改用 API 也是 HTTP {r.status_code}"
+        blob = r.json()
+        raw = base64.b64decode(blob["content"]).decode("utf-8") if "content" in blob else r.text
+        return json.loads(raw), "api"
+    except (requests.RequestException, ValueError, KeyError) as exc:
+        return None, f"云端估值快照读不到：{type(exc).__name__}"
+
+
 def sync_from_github() -> dict:
     """乐咕整站 504 时不再干等：读 GitHub 上 Actions 每天回写的估值快照"""
-    try:
-        resp = requests.get(config.GITHUB_SNAPSHOT_URL, timeout=30,
-                            headers={"User-Agent": "biaoge-local/1.0"})
-        if resp.status_code != 200:
-            return {"ok": False,
-                    "message": f"云端估值快照读不到：HTTP {resp.status_code}（仓库还没跑过定时任务？）"}
-        snap = resp.json()
-    except (requests.RequestException, ValueError) as exc:
-        return {"ok": False, "message": f"云端估值快照读不到：{type(exc).__name__}"}
+    snap, via = _fetch_snapshot()
+    if not snap:
+        return {"ok": False, "message": via}
     codes = written = 0
     for code, blob in (snap.get("objects") or {}).items():
         item = BY_CODE.get(code)
@@ -205,9 +241,9 @@ def sync_from_github() -> dict:
     invalidate()
     if not codes:
         return {"ok": False, "message": "云端快照里没有任何估值对象"}
-    return {"ok": True, "objects": codes, "rows": written,
+    return {"ok": True, "objects": codes, "rows": written, "via": via,
             "generatedAt": snap.get("generatedAt"),
-            "message": f"从云端补了 {codes} 个对象 / {written} 行，快照生成于 {snap.get('generatedAt')}"}
+            "message": f"从云端补了 {codes} 个对象 / {written} 行（{via}，快照生成于 {snap.get('generatedAt')}）"}
 
 
 def ensure(code: str) -> dict | None:

@@ -20,14 +20,27 @@ def main() -> int:
     db.init_db()
     out = valuation.refresh_all("github-actions")
     snap = valuation.export_snapshot()
+
+    # 乐咕整站偶尔只回一部分（504 是零散的），别让一轮残缺把上一轮的对象丢掉
+    dest = ROOT / "data" / "valuation_history.json"
+    old: dict = {}
+    if dest.exists():
+        try:
+            old = (json.loads(dest.read_text(encoding="utf-8")).get("objects") or {})
+        except (ValueError, OSError) as exc:
+            print("上一份快照读不了，忽略:", type(exc).__name__)
+    objects = dict(old)
+    objects.update(snap["objects"])
+    dropped = [c for c in old if c not in snap["objects"]]
+    snap["objects"] = objects
     snap["refresh"] = {"ok": out.get("ok"), "objects": out.get("objects"),
                        "errors": out.get("errors") or []}
-    dest = ROOT / "data" / "valuation_history.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(snap, ensure_ascii=False), encoding="utf-8")
-    rows = sum(len(v["rows"]) for v in snap["objects"].values())
-    print(f'objects={len(snap["objects"])}/{len(valuation.UNIVERSE)} rows={rows} '
-          f'ok={out.get("ok")} failed={len(snap["refresh"]["errors"])}')
+    rows = sum(len(v["rows"]) for v in objects.values())
+    print(f'objects={len(objects)}/{len(valuation.UNIVERSE)} rows={rows} '
+          f'本轮抓取 ok={out.get("ok")} failed={len(snap["refresh"]["errors"])}'
+          + (f'（沿用上轮 {", ".join(dropped)}）' if dropped else ""))
     for line in snap["refresh"]["errors"][:5]:
         print("  -", line)
     return 0

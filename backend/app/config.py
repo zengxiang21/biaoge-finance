@@ -42,6 +42,9 @@ SNAPSHOT_SAMPLE_K_LINES = 300  # 抽成交额前 N 只算均线/新高新低
 DAILY_REFRESH_TIME = "15:35"
 
 # 云端兜底：GitHub Actions 每天定时抓宽基估值历史并回写 data/valuation_history.json，
-# 本机打不通乐咕（整站 504）时读这份快照续数据；换仓库只改这一行。
-GITHUB_SNAPSHOT_URL = ("https://raw.githubusercontent.com/zengxiang21/biaoge-finance/"
-                       "main/data/valuation_history.json")
+# 本机打不通乐咕（整站 504）时读这份快照续数据；换仓库只改这两行。
+GITHUB_SNAPSHOT_REPO = "zengxiang21/biaoge-finance"
+GITHUB_SNAPSHOT_URL = ("https://raw.githubusercontent.com/"
+                       f"{GITHUB_SNAPSHOT_REPO}/main/data/valuation_history.json")
+# 仓库是私有时 raw 读不到，改用 API（令牌见 valuation._github_token）
+GITHUB_SNAPSHOT_API = f"https://api.github.com/repos/{GITHUB_SNAPSHOT_REPO}/contents/data/valuation_history.json"

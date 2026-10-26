@@ -97,7 +97,27 @@ cd frontend && npm run dev
 仪表盘顶部的时间读数也是活的：每 5 秒重算一次「多久前」，并显示「现在 HH:MM:SS · 数据 X 秒前 · 约 N 秒后再拉」。
 收盘之后快照已定型，那一格改成显示「收盘快照 HH:MM」而不是越来越长的「X 分钟前」。
 
-## 六、验收自检
+## 六、GitHub 与云端更新（后续更新不依赖这台机器）
+
+仓库 `https://github.com/zengxiang21/biaoge-finance`（私有）。两个 workflow：
+
+| workflow | 触发 | 干什么 |
+|----------|------|--------|
+| `CI` | 每次 push / PR | 云端干净环境跑 `compileall backend/app` + 导入 `app.main` 冒烟 + 前端 `typecheck` / `build` |
+| `估值历史云端刷新` | 周一至周五 18:40（北京时间），也能手动 dispatch | 在云端跑 `scripts/export_valuation_snapshot.py`，抓 16 个宽基/全市场估值序列并回写 `data/valuation_history.json` |
+
+本机读云端快照的三条路，自动依次尝试：
+
+1. 乐咕能通就照旧直接抓；
+2. 整轮失败时（`_run_valuation`）自动改读 `data/valuation_history.json` 并写一条 `valuation_sync` 到 `job_runs`；
+3. 开机发现 16 个对象没齐，也用这份快照补一次。
+
+仓库是私有的，raw 地址读不到，所以 `_github_token()` 按「设置里的 `github_token` > 环境变量 `GITHUB_TOKEN`/`GH_TOKEN` > 本机 `~/.git-credentials` 里 github.com 那行」取令牌改走 API。令牌只留在这台机器上，不进仓库。
+指数页估值一览表那里有「从云端补数」按钮，点一下就是第 2 条路。
+
+推送要走本机系统代理（`git -c http.proxy=http://127.0.0.1:7897 ...`）：GitHub 的 443 直连在这台机器上会超时或 TLS 断流，`credential.helper` 链里的 `helper-selector` 也取不到凭证，所以推送时临时内联令牌。
+
+## 七、验收自检
 
 ```bat
 :: 后端语法
@@ -110,19 +130,21 @@ cd frontend && npm run typecheck && npm run build
 .venv\Scripts\python.exe scripts\smoke_phase_h.py
 ```
 
-## 七、目录
+## 八、目录
 
 ```
 backend/app/         config.py db.py permissions.py security.py scheduler.py main.py
   routers/           按域拆分的 17 个 APIRouter
   services/          业务编排：行情快照、策略引擎、AI、复盘、模拟盘、异动…
   providers/         sina / eastmoney / tencent / external + registry 主备路由
-backend/data/        biaoge.db、jwt.secret、uploads/
+backend/data/        biaoge.db、jwt.secret、uploads/（都在 .gitignore 里，不上传）
+data/                valuation_history.json — Actions 回写的云端估值快照
 frontend/src/        pages/ components/ lib/ store/ App.tsx
-scripts/             check_perms.py 与只读冒烟脚本
+scripts/             check_perms.py、export_valuation_snapshot.py（Actions 用）与只读冒烟脚本
+.github/workflows/   ci.yml、valuation-snapshot.yml
 ```
 
-## 八、常见问题
+## 九、常见问题
 
 | 现象 | 处理 |
 |------|------|
