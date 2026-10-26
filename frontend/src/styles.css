@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/* Tailwind v4：用 class 策略驱动暗色模式，配合首屏内联脚本 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+  --animate-fade-in: fade-in 0.24s ease-out;
+  --animate-slide-up: slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pop: pop 0.18s ease-out;
+  --animate-shimmer: shimmer 1.2s linear infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px) }
+  to { opacity: 1; transform: translateY(0) }
+}
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.96) }
+  100% { opacity: 1; transform: scale(1) }
+}
+@keyframes shimmer {
+  0% { background-position: -400px 0 }
+  100% { background-position: 400px 0 }
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.28) 37%, rgba(148, 163, 184, 0.12) 63%);
+  background-size: 800px 100%;
+  animation: var(--animate-shimmer);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

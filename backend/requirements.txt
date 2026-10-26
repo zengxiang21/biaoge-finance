@@ -1,0 +1,30 @@
+# 彪哥财经之英雄本色 · 后端依赖
+# 安装：.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+# 版本与本仓库实测通过的虚拟环境一致，改版本请重跑 npm run build + 冒烟脚本
+
+fastapi==0.162.0
+starlette==1.10.0
+uvicorn[standard]==0.54.0
+websockets==17.3
+pydantic==2.14.1
+python-multipart==0.0.32
+python-dotenv==1.2.4
+requests==2.34.2
+APScheduler==3.11.3
+PyJWT==2.15.1
+
+# 以下是 fastapi / uvicorn / requests 的传递依赖，钉住是为了复现本机实测通过的组合环境
+anyio==4.15.1
+click==8.5.0
+h11==0.16.0
+typing_extensions==4.16.0
+annotated-types==0.8.0
+annotated-doc==0.0.5
+pydantic_core==2.50.1
+opentelemetry-api==1.45.1
+certifi==2026.10.23
+charset-normalizer==3.5.2
+idna==3.20
+urllib3==2.8.0
+tzdata==2026.5
+tzlocal==5.4.5

@@ -1,0 +1,31 @@
+name: 估值历史云端刷新
+
+on:
+  schedule:
+    # 北京时间 18:40，和本机定时任务同一节奏
+    - cron: "40 10 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements.txt
+      - run: python scripts/export_valuation_snapshot.py
+      - name: 回写 data/valuation_history.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/valuation_history.json
+          if git diff --cached --quiet; then
+            echo "快照没有变化，不提交"
+          else
+            git commit -m "chore(data): 估值历史快照 $(date -u +%F)"
+            git push
+          fi

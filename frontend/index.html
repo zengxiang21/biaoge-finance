@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>彪哥财经之英雄本色 · 股票投研一体化平台</title>
+    <script>
+      // 首屏内联脚本避免暗色闪烁（拆解文档 8.1.3 / 10.5）
+      (function () {
+        try {
+          var saved = localStorage.getItem("tsp-saas.ui.theme");
+          var dark = saved === "dark" || (!saved && matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

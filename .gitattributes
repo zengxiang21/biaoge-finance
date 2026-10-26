@@ -1,0 +1,17 @@
+# Windows 上双击的启动脚本必须是 CRLF，GBK 内容 git 不会动
+* text=auto
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 云端快照与文本数据按 LF 存
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+
+*.db binary
+*.png binary
+*.jpg binary
+*.ico binary
