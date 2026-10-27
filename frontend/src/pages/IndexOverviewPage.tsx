@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, messageOf } from "../lib/api";
+import { api, isDemo, messageOf } from "../lib/api";
 import type { IndexOverviewResult, IndexQuote } from "../lib/types";
 import { EMOTION_TONE } from "../lib/colors";
 import { clock, money, num, price, tradeDate, yi } from "../lib/format";
@@ -73,7 +73,9 @@ export default function IndexOverviewPage() {
         )}
       >
         {busy && !data ? <Skeleton className="h-28 w-full" /> : quotes.length === 0 ? (
-          <EmptyState text="指数报价接口没返回" hint={data?.errors?.index ?? "新浪指数行情偶发限流，稍后刷新"} />
+          <EmptyState text="指数报价接口没返回"
+            hint={data?.errors?.index ?? (isDemo ? "演示站没有后端，指数报价不在预生成范围内"
+              : "新浪指数行情偶发限流，稍后刷新")} />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             {quotes.map((q) => (
