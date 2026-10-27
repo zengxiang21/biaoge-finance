@@ -115,7 +115,7 @@ cd frontend && npm run dev
 仓库是私有的，raw 地址读不到，所以 `_github_token()` 按「设置里的 `github_token` > 环境变量 `GITHUB_TOKEN`/`GH_TOKEN` > 本机 `~/.git-credentials` 里 github.com 那行」取令牌改走 API。令牌只留在这台机器上，不进仓库。
 指数页估值一览表那里有「从云端补数」按钮，点一下就是第 2 条路。
 
-推送要先 `-c credential.helper=` 清空再挂一个内联 helper：系统级的 `helper-selector` 排在 `store` 前面，既取不到凭证又可能弹 GUI 把命令挂死。令牌从 `~/.git-credentials` 里 github.com 那行现取，不进命令行历史也不打印。网络这条 2026-10-27 实测直连可用（走 `127.0.0.1:7897` 反而 `TLS connect error: unexpected eof`）；直连不通时再加 `-c http.proxy=http://127.0.0.1:7897 -c https.proxy=同`。
+要把本机归档推回云端，跑 `scripts/push_valuation_snapshot.py`：它先拉 `origin/main` 那份快照，与本机数据库导出的做并集（同一对象取行数多的那份），再提交推送，直连和走 `127.0.0.1:7897` 代理各试一次——这台机器两条路都是时通时不通（2026-10-27 晚 22:00 直连能推、22:20 就 443 连不上，只能改走代理）。凭据的取法见上一段：先 `-c credential.helper=` 清空再内联挂一个，否则系统级 `helper-selector` 会截胡甚至弹 GUI 把命令挂死；`rebase` 也要带 `-c user.name/-c user.email`，本机没有全局身份，缺了它重放会停在索引里。
 
 ## 七、验收自检
 
@@ -140,7 +140,7 @@ backend/app/         config.py db.py permissions.py security.py scheduler.py mai
 backend/data/        biaoge.db、jwt.secret、uploads/（都在 .gitignore 里，不上传）
 data/                valuation_history.json — Actions 回写的云端估值快照
 frontend/src/        pages/ components/ lib/ store/ App.tsx
-scripts/             check_perms.py、export_valuation_snapshot.py（Actions 用）与只读冒烟脚本
+scripts/             check_perms.py、export_valuation_snapshot.py（Actions 用）、push_valuation_snapshot.py（本机并集回推）、只读冒烟脚本
 .github/workflows/   ci.yml、valuation-snapshot.yml
 ```
 
