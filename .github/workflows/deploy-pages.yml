@@ -37,6 +37,9 @@ jobs:
 
       - name: 现抓一轮行情并生成演示站 payload
         run: python scripts/export_demo_api.py --live
+        # runner 默认 UTC，横幅上的「抓取于」会差 8 小时；交易口径也按北京时间算
+        env:
+          TZ: Asia/Shanghai
 
       - uses: actions/setup-node@v4
         with:

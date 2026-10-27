@@ -76,7 +76,12 @@ let refreshing: Promise<boolean> | null = null;
 export const isDemo = import.meta.env.VITE_DEMO === "1";
 
 type DemoEntry = { key: string; file: string; bytes?: number };
-type DemoIndex = { generatedAt: string; live: boolean; entries: DemoEntry[] };
+type DemoIndex = {
+  generatedAt: string;
+  live: boolean;
+  ingestFailures?: string[];
+  entries: DemoEntry[];
+};
 
 let demoIndex: Promise<DemoIndex | null> | null = null;
 
@@ -132,10 +137,10 @@ async function demoGet<T>(url: string, params?: Record<string, unknown>): Promis
   return await r.json() as T;
 }
 
-/** 演示站顶部横幅要告诉访客这批数据是什么时候抓的 */
-export async function demoGeneratedAt(): Promise<string | null> {
+/** 演示站顶部横幅要告诉访客这批数据是什么时候抓的、有没有环节空手而归 */
+export async function demoSnapshot(): Promise<{ at: string; missed: number }> {
   const idx = await loadDemoIndex();
-  return idx?.generatedAt ?? null;
+  return { at: idx?.generatedAt ?? "", missed: idx?.ingestFailures?.length ?? 0 };
 }
 
 

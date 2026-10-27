@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import shutil
 import sys
@@ -40,6 +41,17 @@ from app.services import valuation  # noqa: E402
 SNAP = ROOT / "data" / "valuation_history.json"
 OUT = ROOT / "frontend" / "public" / "demo-api"
 LIVE = "--live" in sys.argv
+
+# 时间预算（实测 2026-10-27 云端一轮：快照 214s + 板块成分 302s + 其余六步 <40s，
+# 整轮 14 分钟）。放宽到 22 分钟当保险：宁可少出几个面板，也不能把 job 拖到 30 分钟
+# 被砍 —— 那样 Pages 连上一版都发不出去。
+START = time.monotonic()
+DEADLINE = START + float(os.environ.get("DEMO_BUDGET_MIN", 22 if LIVE else 10_000)) * 60
+
+
+def left() -> float:
+    return DEADLINE - time.monotonic()
+
 
 # 演示站白名单：(接口, 参数)。参数抄页面里 api.get 实际传的那一份，
 # 前端用同一个 canon() 规则算文件名才能对上。只收免登录、不依赖本机 AI 的读接口。
@@ -159,6 +171,10 @@ def ingest() -> list[str]:
     ]
     failures: list[str] = []
     for name, fn in steps:
+        if left() < 120:
+            failures.append(f"{name}: 时间预算用完，跳过")
+            print(f"[ingest] {name}: SKIP，预算只剩 {left():.0f}s", flush=True)
+            continue
         t0 = time.time()
         try:
             out = fn()
@@ -208,6 +224,11 @@ def export_live(failures: list[str]) -> list[dict]:
         query = urlencode({k: _val(v) for k, v in params.items() if v not in (None, "")})
         t0 = time.time()
         rec = {"key": key, "ms": 0, "bytes": 0, "status": 0}
+        if left() < 30:
+            rec["error"] = "时间预算用完，未导出"
+            entries.append(rec)
+            print(f"[export] {key}: SKIP，预算只剩 {left():.0f}s", flush=True)
+            continue
         try:
             status, body = asyncio.run(_ask(app, f"api/{path}", query, token))
         except Exception as exc:  # noqa: BLE001
@@ -298,6 +319,8 @@ def main() -> int:
 
     total = sum(e.get("bytes", 0) for e in manifest) / 1024
     print(f"{n} 个估值面板 + {len(manifest) - n} 份静态 payload，合计 {total:.0f} kB -> {OUT}")
+    if LIVE:
+        print(f"本轮用时 {time.monotonic() - START:.0f}s")
     print("最大三个：", sorted(((e["file"], e.get("bytes", 0)) for e in manifest),
                               key=lambda kv: -kv[1])[:3])
     return 0

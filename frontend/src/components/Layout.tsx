@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSession } from "../store/session";
 import { useTheme } from "../store/theme";
 import { toast } from "../store/toast";
-import { api, demoGeneratedAt, isDemo } from "../lib/api";
+import { api, demoSnapshot, isDemo } from "../lib/api";
 import { tradeDate } from "../lib/format";
 import { cn, Chip } from "./ui";
 import { Icon, navIcon } from "./icons";
@@ -26,7 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
   const [offline, setOffline] = useState(false);
-  const [demoAt, setDemoAt] = useState<string | null>(null);
+  const [demoSnap, setDemoSnap] = useState<{ at: string; missed: number } | null>(null);
   const location = useLocation();
   const nav = useNavigate();
 
@@ -60,7 +60,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   // 演示站没有 /health，抓取时刻写在 demo-api/_index.json 里
   useEffect(() => {
-    if (isDemo) void demoGeneratedAt().then(setDemoAt);
+    if (isDemo) void demoSnapshot().then(setDemoSnap);
   }, []);
 
   const groups: NavGroup[] = menuTree;
@@ -205,7 +205,9 @@ export default function Layout({ children }: { children: ReactNode }) {
           <p className="border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-[11px] leading-relaxed text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
             GitHub Pages 只能放静态文件，这里没有后端：行情、资讯、指数与估值这些面板的数据是
             GitHub Actions 每个交易日收盘后现抓一轮再冻结的快照
-            {demoAt ? `（抓取于 ${demoAt}）` : ""}，不是实时行情；策略、持仓、每日复盘和
+            {demoSnap?.at ? `（抓取于 ${demoSnap.at}` : ""}
+            {demoSnap?.missed ? `，其中 ${demoSnap.missed} 个环节这一轮没抓到，对应面板会是空的` : ""}
+            {demoSnap?.at ? "）" : ""}，不是实时行情；策略、持仓、每日复盘和
             AI 诊断要连本机后端，写操作在演示站一律禁用。
           </p>
         )}
