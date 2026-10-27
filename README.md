@@ -104,7 +104,7 @@ cd frontend && npm run dev
 | workflow | 触发 | 干什么 |
 |----------|------|--------|
 | `CI` | 每次 push / PR | 云端干净环境跑 `compileall backend/app` + 导入 `app.main` 冒烟 + 前端 `typecheck` / `build` |
-| `估值历史云端刷新` | 周一至周五 18:40（北京时间），也能手动 dispatch | 在云端跑 `scripts/export_valuation_snapshot.py`，抓 16 个宽基/全市场估值序列并回写 `data/valuation_history.json` |
+| `估值历史云端刷新` | 周一至周五 18:40 与 22:40（北京时间），也能手动 dispatch | 在云端跑 `scripts/export_valuation_snapshot.py`，抓 16 个宽基/全市场估值序列并回写 `data/valuation_history.json`。两个时间槽是因为 GitHub 的 `schedule` 会整轮跳过（10-27 的 18:40 那槽至今没响过），多一槽兜底；脚本与上一版快照做并集，重复跑不会把已有对象跑丢 |
 
 本机读云端快照的三条路，自动依次尝试：
 
@@ -115,7 +115,7 @@ cd frontend && npm run dev
 仓库是私有的，raw 地址读不到，所以 `_github_token()` 按「设置里的 `github_token` > 环境变量 `GITHUB_TOKEN`/`GH_TOKEN` > 本机 `~/.git-credentials` 里 github.com 那行」取令牌改走 API。令牌只留在这台机器上，不进仓库。
 指数页估值一览表那里有「从云端补数」按钮，点一下就是第 2 条路。
 
-推送要走本机系统代理（`git -c http.proxy=http://127.0.0.1:7897 ...`）：GitHub 的 443 直连在这台机器上会超时或 TLS 断流，`credential.helper` 链里的 `helper-selector` 也取不到凭证，所以推送时临时内联令牌。
+推送要先 `-c credential.helper=` 清空再挂一个内联 helper：系统级的 `helper-selector` 排在 `store` 前面，既取不到凭证又可能弹 GUI 把命令挂死。令牌从 `~/.git-credentials` 里 github.com 那行现取，不进命令行历史也不打印。网络这条 2026-10-27 实测直连可用（走 `127.0.0.1:7897` 反而 `TLS connect error: unexpected eof`）；直连不通时再加 `-c http.proxy=http://127.0.0.1:7897 -c https.proxy=同`。
 
 ## 七、验收自检
 
