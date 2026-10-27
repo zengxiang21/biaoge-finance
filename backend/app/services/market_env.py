@@ -98,7 +98,8 @@ def backfill(days: int = 40, force: bool = False) -> dict:
                 if low <= min(w[3] for w in look):
                     it["newLow"] += 1
 
-    pools = {r["trade_date"]: r for r in db.query(
+    # 下面要 pool.get(...)，sqlite3.Row 没有 .get，这里先转成 dict
+    pools = {r["trade_date"]: dict(r) for r in db.query(
         "SELECT trade_date, "
         "SUM(CASE WHEN kind='up' THEN 1 ELSE 0 END) up, "
         "SUM(CASE WHEN kind='blown' THEN 1 ELSE 0 END) blown, "

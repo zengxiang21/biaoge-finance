@@ -75,24 +75,69 @@ let refreshing: Promise<boolean> | null = null;
 /** GitHub Pages 演示站：纯静态，没有 FastAPI 可打 */
 export const isDemo = import.meta.env.VITE_DEMO === "1";
 
-/** 演示站只放了脚本预生成的那几份 JSON，映射不到的一律明确报「没有后端」而不是 404 */
-function demoFile(url: string, params?: Record<string, unknown>): string | null {
-  if (url === "/auth/context") return "auth/context.json";
-  if (url === "/settings/public") return "settings/public.json";
-  if (url === "/index/valuation/overview") return "index/valuation/overview.json";
-  if (url === "/index/valuation" && params?.code) return `index/valuation/panel.${params.code}.json`;
-  return null;
+type DemoEntry = { key: string; file: string; bytes?: number };
+type DemoIndex = { generatedAt: string; live: boolean; entries: DemoEntry[] };
+
+let demoIndex: Promise<DemoIndex | null> | null = null;
+
+function loadDemoIndex(): Promise<DemoIndex | null> {
+  if (!demoIndex) {
+    demoIndex = fetch(`${import.meta.env.BASE_URL}demo-api/_index.json`)
+      .then((r) => (r.ok ? (r.json() as Promise<DemoIndex>) : null))
+      .catch(() => null);
+  }
+  return demoIndex;
+}
+
+/** 和 scripts/export_demo_api.py 的 canon() 严格同规则：空值丢掉、布尔写 true/false、按键排序 */
+function demoValue(v: unknown): string {
+  if (v === true) return "true";
+  if (v === false) return "false";
+  return String(v);
+}
+
+function demoKey(url: string, params?: Record<string, unknown>): string {
+  const [rawPath, rawQuery] = url.split("?");
+  const merged: Record<string, string> = {};
+  for (const chunk of (rawQuery ?? "").split("&")) {
+    const i = chunk.indexOf("=");
+    if (i > 0 && chunk.slice(i + 1)) merged[chunk.slice(0, i)] = chunk.slice(i + 1);
+  }
+  for (const [k, v] of Object.entries(params ?? {})) {
+    if (v === null || v === undefined || v === "") continue;
+    merged[k] = demoValue(v);
+  }
+  const path = rawPath.replace(/^\//, "");
+  const qs = Object.keys(merged).sort().map((k) => `${k}=${merged[k]}`).join("&");
+  return qs ? `${path}?${qs}` : path;
 }
 
 async function demoGet<T>(url: string, params?: Record<string, unknown>): Promise<T> {
-  const file = demoFile(url, params);
-  if (!file) {
-    throw new ApiError("演示站是纯静态的，这个模块要连后端才有数据", "DEMO_OFFLINE", 0);
+  const key = demoKey(url, params);
+  const idx = await loadDemoIndex();
+  // 页面上的「刷新」只是让后端重打上游，静态站没有这个动作，去掉它再认一次
+  const hit = idx?.entries.find((e) => e.key === key)
+    ?? idx?.entries.find((e) => e.key === demoKey(url.split("?")[0],
+      { ...params, refresh: undefined }));
+  if (!hit) {
+    const samePath = idx?.entries.some((e) => e.key.split("?")[0] === key.split("?")[0]);
+    throw new ApiError(
+      samePath
+        ? "演示站只预抓取了默认参数的这一组，换参数要连本机后端"
+        : "演示站没有抓这个模块的数据，要连本机后端才有",
+      "DEMO_MISSING", 0);
   }
-  const r = await fetch(`${import.meta.env.BASE_URL}demo-api/${file}`);
-  if (!r.ok) throw new ApiError(`演示站没预生成 ${file}`, "DEMO_MISSING", r.status);
+  const r = await fetch(`${import.meta.env.BASE_URL}demo-api/${hit.file}`);
+  if (!r.ok) throw new ApiError(`演示站没预生成 ${hit.file}`, "DEMO_MISSING", r.status);
   return await r.json() as T;
 }
+
+/** 演示站顶部横幅要告诉访客这批数据是什么时候抓的 */
+export async function demoGeneratedAt(): Promise<string | null> {
+  const idx = await loadDemoIndex();
+  return idx?.generatedAt ?? null;
+}
+
 
 function demoWrite(): never {
   throw new ApiError("演示站是只读的，写操作要连本机后端", "DEMO_READONLY", 0);

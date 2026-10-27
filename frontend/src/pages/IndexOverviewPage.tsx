@@ -74,7 +74,7 @@ export default function IndexOverviewPage() {
       >
         {busy && !data ? <Skeleton className="h-28 w-full" /> : quotes.length === 0 ? (
           <EmptyState text="指数报价接口没返回"
-            hint={data?.errors?.index ?? (isDemo ? "演示站没有后端，指数报价不在预生成范围内"
+            hint={data?.errors?.index ?? (isDemo ? "演示站这一轮没抓到指数报价（上游限流），等下次定时任务重抓"
               : "新浪指数行情偶发限流，稍后刷新")} />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

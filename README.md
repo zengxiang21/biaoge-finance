@@ -22,9 +22,15 @@ A 股看盘 / 复盘 / 策略 / 持仓 / 模拟交易一体化工作台。按
 ## 一·补、GitHub Pages 演示站
 
 `https://zengxiang21.github.io/biaoge-finance/` 是纯静态演示站：Pages 跑不了 FastAPI，
-所以只有「指数估值」两页有真实数据（GitHub Actions 每天抓完顺手把算好的 payload 发布上去），
-其余面板会明确提示「演示站没有后端」，写操作一律禁用。数据口径和本机版同一份代码，见
-`scripts/export_demo_api.py`。
+所以数据靠 GitHub Actions 每个交易日 19:30（北京时间）在 runner 上现抓一轮——
+`python scripts/export_demo_api.py --live` 先把收盘快照、板块成分、日线、快讯灌进一个
+临时库，再直接调用线上同一批 router 把返回结果写成静态 JSON（`frontend/public/demo-api/`，
+附一份 `_index.json` 清单），前端演示模式只换 fetch 地址，口径不重写第二遍。
+于是仪表盘、行情中心、板块分析、全球指数、资讯、资金流、市场环境、指数概览/成分、
+估值、学堂、异动这些页都是抓取时刻的真数据，页顶横幅写明「抓取于」几点几分；
+策略、持仓、每日复盘和 AI 诊断仍要连本机后端，演示站的写操作一律禁用。
+顺带一条实测经验：本机出口 IP 被拉黑的上游（乐咕乐股整站 504），runner 抓得动，
+所以「拿不到数据」的结论要先让云端跑一轮再说。
 
 首次上线要在网页上点两下（fine-grained 令牌没有 Pages / 可见性权限，脚本会被拒）：
 Settings → Pages → Build source 选 **GitHub Actions**；Settings → General → Danger Zone →

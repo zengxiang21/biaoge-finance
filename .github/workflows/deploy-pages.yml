@@ -1,13 +1,16 @@
 name: Pages 演示站
 
-# Pages 上跑不了 FastAPI，所以发的是「静态前端 + 预生成的估值 payload」。
-# payload 由 scripts/export_demo_api.py 现场调用后端同一份 valuation 代码算出来，
-# 不在前端重写一遍口径；data/valuation_history.json 每天被估值归档任务更新，
-# 所以这里跟着 main 的每次推送重建，数据始终跟得上。
+# Pages 上跑不了 FastAPI，所以发的是「静态前端 + 预抓好的接口 payload」。
+# payload 由 scripts/export_demo_api.py --live 在 runner 上现抓一轮行情（收盘快照、
+# 板块、快讯、全球指数…），再直接调用线上同一份 router 把返回结果写成静态 JSON，
+# 口径不在前端重写一遍。工作日 19:30（北京时间）抓一次，push 时也重建。
 
 on:
   push:
     branches: [main]
+  schedule:
+    # 11:30 UTC = 19:30 北京时间，排在 18:40 的估值归档之后，估值快照也带得上新数据
+    - cron: "30 11 * * 1-5"
   workflow_dispatch: {}
 
 permissions:
@@ -22,6 +25,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -31,8 +35,8 @@ jobs:
 
       - run: pip install -r backend/requirements.txt
 
-      - name: 生成演示站 payload（估值面板 + 导航/品牌）
-        run: python scripts/export_demo_api.py
+      - name: 现抓一轮行情并生成演示站 payload
+        run: python scripts/export_demo_api.py --live
 
       - uses: actions/setup-node@v4
         with:
