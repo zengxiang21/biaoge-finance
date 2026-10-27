@@ -266,4 +266,6 @@ def public_settings() -> dict:
             "marketing": {"plans": marketing["plans"], "contact": marketing["contact"],
                           "note": marketing["note"]},
             "footerNote": brand["footer_note"], "icp": brand["icp"],
-            "demoNote": "体验账号 demo / Demo@2026，管理员 admin / Biaoge@2026（本机库，密码登录后请改）"}
+            # 这个接口不校验身份，管理员口令一律不能出现在这里
+            "demoNote": "体验账号 demo / Demo@2026（无管理权限）；"
+                        "管理员口令取启动时的 ADMIN_PASSWORD，没设就是启动日志里随机的那条"}

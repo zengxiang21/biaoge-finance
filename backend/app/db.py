@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import secrets
 import sqlite3
 import threading
 from datetime import datetime
@@ -425,12 +427,14 @@ def init_db() -> None:
         for code in codes:
             execute("INSERT OR IGNORE INTO role_permissions(role,code) VALUES(?,?)", (role, code))
 
-    # 内置账号：首次启动才建，密码写在启动日志里
+    # 内置账号：首次启动才建。管理员口令不写进仓库，给了环境变量就用它，
+    # 没给就随机生成一条并打印在启动日志里（本机已有库时这两种都不会触发）
     from .security import hash_password
 
+    admin_pwd = os.getenv("ADMIN_PASSWORD") or secrets.token_urlsafe(12)
     seeds = [
-        ("admin", "曾老师", "admin", "Biaoge@2026"),
-        ("demo", "体验用户", "user", "Demo@2026"),
+        ("admin", "曾老师", "admin", admin_pwd),
+        ("demo", "体验用户", "user", os.getenv("DEMO_PASSWORD") or "Demo@2026"),
     ]
     for username, display, role, pwd in seeds:
         if not query_one("SELECT id FROM users WHERE username=?", (username,)):

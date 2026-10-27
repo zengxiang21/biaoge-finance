@@ -13,6 +13,8 @@ backend/data/
 # 前端依赖与构建产物
 frontend/node_modules/
 frontend/dist/
+# 演示站的静态 payload：由 scripts/export_demo_api.py 生成，Actions 里现算现发
+frontend/public/demo-api/
 
 *.log
 .env

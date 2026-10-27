@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, messageOf } from "../lib/api";
+import { api, isDemo, messageOf } from "../lib/api";
 import type {
   ValuationMetric, ValuationOverview, ValuationPanel, ValuationRelative, ValuationRow,
 } from "../lib/types";
@@ -181,6 +181,12 @@ function RangePicker({ range, onRange }: { range: Range; onRange: (r: Range) => 
   useEffect(() => { setStart(range.start ?? ""); setEnd(range.end ?? ""); }, [range.start, range.end]);
   const dirty = start !== (range.start ?? "") || end !== (range.end ?? "");
   const manual = !!(range.start || range.end);
+  // 演示站的 payload 是 Actions 预生成的，只算了「全部历史」这一档
+  if (isDemo) {
+    return (
+      <span className="text-[11px] text-slate-400">演示站只提供全部历史区间</span>
+    );
+  }
   const box = "nums rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] "
     + "text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200";
   return (
@@ -429,25 +435,29 @@ export function ValuationSection({ initialCode = "000300.SH" }: { initialCode?: 
             )}
 
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <Button size="sm" variant="outline" loading={rebuilding}
-                onClick={async () => {
-                  setRebuilding(true);
-                  try {
-                    const r = await api.post<{ message?: string }>("/index/valuation/rebuild", {}, 20_000);
-                    if (r?.message) setError(r.message);
-                  } catch (e) { setError(messageOf(e)); }
-                  window.setTimeout(() => void loadOverview(), 1500);
-                }}>重建估值历史</Button>
-              <Button size="sm" variant="outline" loading={syncing}
-                onClick={async () => {
-                  setSyncing(true); setSyncMsg(null);
-                  try {
-                    const r = await api.post<{ message?: string }>("/index/valuation/sync", {}, 30_000);
-                    setSyncMsg(r?.message ?? "云端快照已读取");
-                    void loadOverview(); void reload();
-                  } catch (e) { setSyncMsg(messageOf(e)); }
-                  setSyncing(false);
-                }}>从云端补数</Button>
+              {!isDemo && (
+                <>
+                  <Button size="sm" variant="outline" loading={rebuilding}
+                    onClick={async () => {
+                      setRebuilding(true);
+                      try {
+                        const r = await api.post<{ message?: string }>("/index/valuation/rebuild", {}, 20_000);
+                        if (r?.message) setError(r.message);
+                      } catch (e) { setError(messageOf(e)); }
+                      window.setTimeout(() => void loadOverview(), 1500);
+                    }}>重建估值历史</Button>
+                  <Button size="sm" variant="outline" loading={syncing}
+                    onClick={async () => {
+                      setSyncing(true); setSyncMsg(null);
+                      try {
+                        const r = await api.post<{ message?: string }>("/index/valuation/sync", {}, 30_000);
+                        setSyncMsg(r?.message ?? "云端快照已读取");
+                        void loadOverview(); void reload();
+                      } catch (e) { setSyncMsg(messageOf(e)); }
+                      setSyncing(false);
+                    }}>从云端补数</Button>
+                </>
+              )}
               {syncMsg && (
                 <span className="nums text-[11px] text-slate-500 dark:text-slate-400">{syncMsg}</span>
               )}

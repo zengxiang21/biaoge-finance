@@ -100,10 +100,7 @@ export default function LoginPage() {
           {pub?.demoNote ? (
             <Chip tone="slate">{pub.demoNote}</Chip>
           ) : (
-            <>
-              <Chip tone="slate">内置账号 admin / Biaoge@2026</Chip>
-              <Chip tone="slate">demo / Demo@2026（无管理权限）</Chip>
-            </>
+            <Chip tone="slate">体验账号 demo / Demo@2026（无管理权限）</Chip>
           )}
         </div>
       </div>

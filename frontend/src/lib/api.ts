@@ -72,6 +72,32 @@ export class ApiError extends Error {
 
 let refreshing: Promise<boolean> | null = null;
 
+/** GitHub Pages 演示站：纯静态，没有 FastAPI 可打 */
+export const isDemo = import.meta.env.VITE_DEMO === "1";
+
+/** 演示站只放了脚本预生成的那几份 JSON，映射不到的一律明确报「没有后端」而不是 404 */
+function demoFile(url: string, params?: Record<string, unknown>): string | null {
+  if (url === "/auth/context") return "auth/context.json";
+  if (url === "/settings/public") return "settings/public.json";
+  if (url === "/index/valuation/overview") return "index/valuation/overview.json";
+  if (url === "/index/valuation" && params?.code) return `index/valuation/panel.${params.code}.json`;
+  return null;
+}
+
+async function demoGet<T>(url: string, params?: Record<string, unknown>): Promise<T> {
+  const file = demoFile(url, params);
+  if (!file) {
+    throw new ApiError("演示站是纯静态的，这个模块要连后端才有数据", "DEMO_OFFLINE", 0);
+  }
+  const r = await fetch(`${import.meta.env.BASE_URL}demo-api/${file}`);
+  if (!r.ok) throw new ApiError(`演示站没预生成 ${file}`, "DEMO_MISSING", r.status);
+  return await r.json() as T;
+}
+
+function demoWrite(): never {
+  throw new ApiError("演示站是只读的，写操作要连本机后端", "DEMO_READONLY", 0);
+}
+
 async function doRefresh(): Promise<boolean> {
   const t = readTokens();
   if (!t?.refreshToken) return false;
@@ -137,15 +163,19 @@ export function messageOf(e: unknown): string {
 }
 
 export const api = {
-  get: async <T>(url: string, params?: Record<string, unknown>, timeoutMs?: number): Promise<T> =>
-    (await http.get<T>(url, { params, timeout: timeoutMs })).data,
+  get: async <T>(url: string, params?: Record<string, unknown>, timeoutMs?: number): Promise<T> => {
+    if (isDemo) return demoGet<T>(url, params);
+    return (await http.get<T>(url, { params, timeout: timeoutMs })).data;
+  },
   // AI 诊断跑本地 14B，一次几十秒，20s 默认超时会误报「连不上后端」
   post: async <T>(url: string, body?: unknown, timeoutMs?: number): Promise<T> =>
-    (await http.post<T>(url, body, { timeout: timeoutMs })).data,
-  put: async <T>(url: string, body?: unknown): Promise<T> => (await http.put<T>(url, body)).data,
+    isDemo ? demoWrite() : (await http.post<T>(url, body, { timeout: timeoutMs })).data,
+  put: async <T>(url: string, body?: unknown): Promise<T> =>
+    isDemo ? demoWrite() : (await http.put<T>(url, body)).data,
   patch: async <T>(url: string, body?: unknown, timeoutMs?: number): Promise<T> =>
-    (await http.patch<T>(url, body, { timeout: timeoutMs })).data,
-  del: async <T>(url: string): Promise<T> => (await http.delete<T>(url)).data,
+    isDemo ? demoWrite() : (await http.patch<T>(url, body, { timeout: timeoutMs })).data,
+  del: async <T>(url: string): Promise<T> =>
+    isDemo ? demoWrite() : (await http.delete<T>(url)).data,
 };
 
 export default http;

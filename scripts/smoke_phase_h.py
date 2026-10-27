@@ -1,5 +1,7 @@
 """Phase H 页面依赖接口的只读冒烟：逐个确认有数据、字段名对得上"""
 import json
+import os
+import sys
 import urllib.parse
 import urllib.request
 
@@ -7,8 +9,11 @@ BASE = "http://127.0.0.1:8750/api"
 
 
 def token():
+    pwd = os.getenv("ADMIN_PASSWORD")
+    if not pwd:
+        sys.exit("先 set ADMIN_PASSWORD=你的管理员口令（新库的那条打在启动后端.log 里）")
     req = urllib.request.Request(BASE + "/auth/login",
-        data=json.dumps({"username": "admin", "password": "Biaoge@2026"}).encode(),
+        data=json.dumps({"username": "admin", "password": pwd}).encode(),
         headers={"Content-Type": "application/json"})
     return json.load(urllib.request.urlopen(req, timeout=30))["accessToken"]
 

@@ -37,6 +37,6 @@ goto probe
 :open
 echo 已就绪：http://127.0.0.1:5173/
 start "" http://127.0.0.1:5173/
-echo 登录账号 admin / Biaoge@2026
+echo 管理员口令看环境变量 ADMIN_PASSWORD，没设则看 logs\server.log 里的 [seed] 行
 echo 这两个服务窗口保持开着即可，本窗口可以关掉。
 pause

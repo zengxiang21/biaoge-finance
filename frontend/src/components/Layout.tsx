@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSession } from "../store/session";
 import { useTheme } from "../store/theme";
 import { toast } from "../store/toast";
-import { api } from "../lib/api";
+import { api, isDemo } from "../lib/api";
 import { tradeDate } from "../lib/format";
 import { cn, Chip } from "./ui";
 import { Icon, navIcon } from "./icons";
@@ -174,7 +174,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <Chip tone={offline ? "rose" : trading ? "emerald" : "slate"}>
             <span className={cn("h-1.5 w-1.5 rounded-full",
               offline ? "bg-rose-500" : trading ? "bg-emerald-500 animate-pulse" : "bg-slate-400")} />
-            {offline ? "后端未启动" : health?.phase?.label ?? "连接中"}
+            {isDemo ? "静态演示站" : offline ? "后端未启动" : health?.phase?.label ?? "连接中"}
           </Chip>
           <Chip tone="slate" className="hidden md:inline-flex">
             {health?.snapshotDate ? `快照 ${tradeDate(health.snapshotDate)}` : "未建快照"}
@@ -195,6 +195,12 @@ export default function Layout({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+        {isDemo && (
+          <p className="border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-[11px] leading-relaxed text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+            GitHub Pages 只能放静态文件，这里没有后端：「指数概览 / 指数成分」的估值是 Actions
+            每天预生成的真实数据，其余模块要连本机 8750 端口才有内容，写操作一律禁用。
+          </p>
+        )}
         <main className="mx-auto w-full max-w-[1500px] flex-1 animate-[fade-in_0.24s_ease-out] p-4">
           {children}
         </main>

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import {
-  ApiError, api, messageOf, readTokens, saveTokens, type TokenPair,
+  ApiError, api, isDemo, messageOf, readTokens, saveTokens, type TokenPair,
 } from "../lib/api";
 import type { BrandConfig } from "../lib/types";
 
@@ -55,7 +55,8 @@ const useSession = create<SessionState>((set, get) => ({
   error: null,
 
   async bootstrap() {
-    if (!readTokens()) {
+    // 演示站没有 /auth/login 可打，直接读预生成的 context 进访客态
+    if (!isDemo && !readTokens()) {
       set({ status: "anon", user: null, permissions: [], menuTree: [] });
       return;
     }
