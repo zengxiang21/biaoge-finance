@@ -26,6 +26,11 @@ A 股看盘 / 复盘 / 策略 / 持仓 / 模拟交易一体化工作台。按
 其余面板会明确提示「演示站没有后端」，写操作一律禁用。数据口径和本机版同一份代码，见
 `scripts/export_demo_api.py`。
 
+首次上线要在网页上点两下（fine-grained 令牌没有 Pages / 可见性权限，脚本会被拒）：
+Settings → Pages → Build source 选 **GitHub Actions**；Settings → General → Danger Zone →
+**Change visibility → Public**。之后本地跑
+`python scripts/setup_pages.py --rerun --verify` 重新发布并检查线上地址。
+
 ## 二、手动启动（.bat 不能用时）
 
 ```bat
