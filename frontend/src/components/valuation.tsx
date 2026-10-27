@@ -396,7 +396,7 @@ export function ValuationSection({ initialCode = "000300.SH" }: { initialCode?: 
                 <div className="xl:col-span-2">
                   {panel.kind === "market" && (
                     <p className="mb-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                      这是{panel.name}的整体估值口径（该市场全部股票加总），不等于对应指数本身。
+                      这是{panel.name?.replace(/整体$/, "") || "该市场"}的整体估值口径（该市场全部股票加总），不等于对应指数本身。
                     </p>
                   )}
                   <MetricReadout m={m} name={metric === "pe" ? "市盈率" : "市净率"}
@@ -463,13 +463,7 @@ export function ValuationSection({ initialCode = "000300.SH" }: { initialCode?: 
                 {overview?.note ?? "估值序列取自乐咕乐股"}
               </span>
             </div>
-            {st?.errors?.length ? (
-              <ul className="mt-2 space-y-0.5">
-                {st.errors.map((e) => (
-                  <li key={e} className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">{e}</li>
-                ))}
-              </ul>
-            ) : null}
+            {st?.errors?.length ? <ErrorNotes errors={st.errors} /> : null}
           </>
         )}
       </Panel>
@@ -494,6 +488,36 @@ export function ValuationSection({ initialCode = "000300.SH" }: { initialCode?: 
 
 /** 指数成分页用：只给当前指数的估值结论一行 + 迷你区间折线 */
 const ALL_HISTORY: Range = { years: 0, start: null, end: null };
+
+/** 乐咕整站挂了时会一次涌出十几条同样的 504，按原因归并成一行，逐个对象收进折叠区 */
+function ErrorNotes({ errors }: { errors: string[] }) {
+  const groups = new Map<string, string[]>();
+  for (const e of errors) {
+    const i = e.indexOf("：");
+    const reason = i < 0 ? e : e.slice(i + 1);
+    const list = groups.get(reason) ?? [];
+    list.push(i < 0 ? "—" : e.slice(0, i));
+    groups.set(reason, list);
+  }
+  return (
+    <div className="mt-2 space-y-1">
+      {[...groups].map(([reason, names]) => (
+        <details key={reason}
+          className="text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+          <summary className="cursor-pointer">
+            {names.length} 个对象本轮取数失败：{reason}
+          </summary>
+          <p className="mt-1 pl-4 text-slate-500 dark:text-slate-400">{names.join("、")}</p>
+        </details>
+      ))}
+      {[...groups].some(([r]) => /乐咕|legulegu/i.test(r)) && (
+        <p className="text-[11px] leading-relaxed text-slate-400">
+          本机出口 IP 打不开乐咕时，点上面的「从云端补数」读 GitHub Actions 每天回写的快照。
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function ValuationSummary({ code, label, note }:
   { code?: string | null; label: string; note?: string | null }) {
