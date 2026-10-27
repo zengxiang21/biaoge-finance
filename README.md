@@ -22,7 +22,8 @@ A 股看盘 / 复盘 / 策略 / 持仓 / 模拟交易一体化工作台。按
 ## 一·补、GitHub Pages 演示站
 
 `https://zengxiang21.github.io/biaoge-finance/` 是纯静态演示站：Pages 跑不了 FastAPI，
-所以数据靠 GitHub Actions 每个交易日 19:30（北京时间）在 runner 上现抓一轮——
+所以数据靠 GitHub Actions 在交易时段每半小时（09:00~15:30 每 30 分钟，外加 19:30 一轮）
+在 runner 上现抓——
 `python scripts/export_demo_api.py --live` 先把收盘快照、板块成分、日线、快讯灌进一个
 临时库，再直接调用线上同一批 router 把返回结果写成静态 JSON（`frontend/public/demo-api/`，
 附一份 `_index.json` 清单），前端演示模式只换 fetch 地址，口径不重写第二遍。

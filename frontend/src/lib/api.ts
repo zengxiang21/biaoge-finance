@@ -85,9 +85,15 @@ type DemoIndex = {
 
 let demoIndex: Promise<DemoIndex | null> | null = null;
 
-function loadDemoIndex(): Promise<DemoIndex | null> {
+/** Pages 的 CDN 按分钟缓存，带上时间戳才拿得到刚发布的那一版 */
+function demoUrl(path: string): string {
+  return `${import.meta.env.BASE_URL}${path}?_=${Math.floor(Date.now() / 60000)}`;
+}
+
+function loadDemoIndex(force = false): Promise<DemoIndex | null> {
+  if (force) demoIndex = null;
   if (!demoIndex) {
-    demoIndex = fetch(`${import.meta.env.BASE_URL}demo-api/_index.json`)
+    demoIndex = fetch(demoUrl("demo-api/_index.json"))
       .then((r) => (r.ok ? (r.json() as Promise<DemoIndex>) : null))
       .catch(() => null);
   }
@@ -132,14 +138,14 @@ async function demoGet<T>(url: string, params?: Record<string, unknown>): Promis
         : "演示站没有抓这个模块的数据，要连本机后端才有",
       "DEMO_MISSING", 0);
   }
-  const r = await fetch(`${import.meta.env.BASE_URL}demo-api/${hit.file}`);
+  const r = await fetch(demoUrl(`demo-api/${hit.file}`));
   if (!r.ok) throw new ApiError(`演示站没预生成 ${hit.file}`, "DEMO_MISSING", r.status);
   return await r.json() as T;
 }
 
 /** 演示站顶部横幅要告诉访客这批数据是什么时候抓的、有没有环节空手而归 */
-export async function demoSnapshot(): Promise<{ at: string; missed: number }> {
-  const idx = await loadDemoIndex();
+export async function demoSnapshot(force = false): Promise<{ at: string; missed: number }> {
+  const idx = await loadDemoIndex(force);
   return { at: idx?.generatedAt ?? "", missed: idx?.ingestFailures?.length ?? 0 };
 }
 

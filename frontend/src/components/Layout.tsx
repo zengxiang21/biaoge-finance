@@ -58,9 +58,22 @@ export default function Layout({ children }: { children: ReactNode }) {
     return () => { alive = false; window.clearInterval(timer); };
   }, []);
 
-  // 演示站没有 /health，抓取时刻写在 demo-api/_index.json 里
+  // 演示站没有 /health，抓取时刻写在 demo-api/_index.json 里；
+  // Actions 盘中每半小时重抓重发一轮，这里查到换了版本就自己整页重载
   useEffect(() => {
-    if (isDemo) void demoSnapshot().then(setDemoSnap);
+    if (!isDemo) return;
+    let first = "";
+    let alive = true;
+    const check = async () => {
+      const snap = await demoSnapshot(first !== "");
+      if (!alive) return;
+      setDemoSnap(snap);
+      if (!first) first = snap.at;
+      else if (snap.at && snap.at !== first) window.location.reload();
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 5 * 60_000);
+    return () => { alive = false; window.clearInterval(timer); };
   }, []);
 
   const groups: NavGroup[] = menuTree;
@@ -204,7 +217,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         {isDemo && (
           <p className="border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-[11px] leading-relaxed text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
             GitHub Pages 只能放静态文件，这里没有后端：行情、资讯、指数与估值这些面板的数据是
-            GitHub Actions 每个交易日收盘后现抓一轮再冻结的快照
+            GitHub Actions 交易时段每半小时现抓一轮再冻结的快照，页面也会自己跟上最新一版
             {demoSnap?.at ? `（抓取于 ${demoSnap.at}` : ""}
             {demoSnap?.missed ? `，其中 ${demoSnap.missed} 个环节这一轮没抓到，对应面板会是空的` : ""}
             {demoSnap?.at ? "）" : ""}，不是实时行情；策略、持仓、每日复盘和
