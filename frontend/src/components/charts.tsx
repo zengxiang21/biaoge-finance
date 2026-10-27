@@ -569,6 +569,13 @@ export function TrendLine({
   const c = TREND_TONE[tone];
   const hp = hover !== null ? points[hover] : null;
   const fmt = (v: number) => v.toFixed(digits);
+  const bandBoxes = bands.map((b) => {
+    const top = Math.max(geo.min, Math.min(geo.max, b.to));
+    const bottom = Math.max(geo.min, Math.min(geo.max, b.from));
+    const h = geo.y(bottom) - geo.y(top);
+    return h > 0 ? { key: `${b.tone}-${b.from}-${b.to}`, tone: b.tone, y: geo.y(top), h,
+                     label: b.label, labelY: geo.y(top) + h / 2 + 3 } : null;
+  });
   const BAND_FILL = { low: "fill-emerald-500/10 dark:fill-emerald-400/10",
                       mid: "fill-amber-400/10 dark:fill-amber-400/10",
                       high: "fill-rose-500/10 dark:fill-rose-400/10" };
@@ -587,24 +594,10 @@ export function TrendLine({
           <stop offset="100%" stopColor={`rgb(${c.rgb})`} stopOpacity="0.02" />
         </linearGradient>
       </defs>
-      {bands.map((b) => {
-        const top = Math.max(geo.min, Math.min(geo.max, b.to));
-        const bottom = Math.max(geo.min, Math.min(geo.max, b.from));
-        const h = geo.y(bottom) - geo.y(top);
-        if (h <= 0) return null;
-        return (
-          <g key={`${b.tone}-${b.from}-${b.to}`}>
-            <rect x={pad.l} y={geo.y(top)} width={W - pad.l - pad.r} height={h}
-              className={BAND_FILL[b.tone]} stroke="none" />
-            {b.label && h >= 13 && (
-              <text x={W - pad.r - 4} y={geo.y(top) + h / 2 + 3} textAnchor="end"
-                className="fill-slate-400 text-[8px] dark:fill-slate-500">
-                {b.label}
-              </text>
-            )}
-          </g>
-        );
-      })}
+      {bandBoxes.map((bb) => (bb && (
+        <rect key={bb.key} x={pad.l} y={bb.y} width={W - pad.l - pad.r} height={bb.h}
+          className={BAND_FILL[bb.tone]} stroke="none" />
+      )))}
       {geo.ticks.map((v) => (
         <g key={v.toFixed(2)}>
           <line x1={pad.l} x2={W - pad.r} y1={geo.y(v)} y2={geo.y(v)}
@@ -613,16 +606,27 @@ export function TrendLine({
         </g>
       ))}
       {refLines.map((r) => (r.value < geo.min || r.value > geo.max ? null : (
-        <g key={r.label}>
-          <line x1={pad.l} x2={W - pad.r} y1={geo.y(r.value)} y2={geo.y(r.value)}
-            className="stroke-slate-400 dark:stroke-slate-500" strokeDasharray="4 3" strokeWidth={0.8} />
-          <text x={pad.l + 2} y={geo.y(r.value) - 2} className="fill-slate-400 text-[8px] dark:fill-slate-500">
-            {r.label} {r.value}
-          </text>
-        </g>
+        <line key={r.label} x1={pad.l} x2={W - pad.r} y1={geo.y(r.value)} y2={geo.y(r.value)}
+          className="stroke-slate-400 dark:stroke-slate-500" strokeDasharray="4 3" strokeWidth={0.8} />
       )))}
       <path d={geo.area} fill={`url(#trend-${gid})`} />
       <path d={geo.line} className={c.line} fill="none" strokeWidth={1.6} strokeLinejoin="round" />
+      {/* 区间名画在折线之上并描一圈底色，理由同下面的阈值标签 */}
+      {bandBoxes.map((bb) => (bb?.label && bb.h >= 13 && (
+        <text key={bb.key} x={W - pad.r - 16} y={bb.labelY} textAnchor="end"
+          strokeWidth={2.5} strokeLinejoin="round" paintOrder="stroke"
+          className="fill-slate-400 stroke-white text-[8px] dark:fill-slate-500 dark:stroke-slate-900">
+          {bb.label}
+        </text>
+      )))}
+      {/* 阈值标签画在折线之上并描一圈底色：否则折线正好从字上切过去，「温和 45」这种读不出来 */}
+      {refLines.map((r) => (r.value < geo.min || r.value > geo.max ? null : (
+        <text key={r.label} x={pad.l + 2} y={geo.y(r.value) - 2} strokeWidth={2.5} strokeLinejoin="round"
+          paintOrder="stroke"
+          className="fill-slate-400 stroke-white text-[8px] dark:fill-slate-500 dark:stroke-slate-900">
+          {r.label} {r.value}
+        </text>
+      )))}
       <circle cx={geo.x(geo.lastIdx)} cy={geo.y(geo.lastValue)} r={3} className={c.dot} />
       <text x={pad.l} y={height - 4} className="fill-slate-400 text-[9px]">{points[0].x}</text>
       <text x={W / 2} y={height - 4} textAnchor="middle" className="fill-slate-400 text-[9px]">
