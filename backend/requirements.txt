@@ -1,4 +1,4 @@
-# 彪哥财经之英雄本色 · 后端依赖
+# 曾老师 · 后端依赖
 # 安装：.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 # 版本与本仓库实测通过的虚拟环境一致，改版本请重跑 npm run build + 冒烟脚本
 

@@ -24,9 +24,9 @@ export default function WelcomePage() {
       <div className="mx-auto max-w-4xl">
         <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-600 text-xl font-bold text-white">彪</span>
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-600 text-xl font-bold text-white">曾</span>
             <div>
-              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">彪哥财经之英雄本色</h1>
+              <h1 className="text-xl font-semibold text-slate-900 dark:text-white">曾老师</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">用真实工具，建立铁的交易纪律</p>
             </div>
           </div>

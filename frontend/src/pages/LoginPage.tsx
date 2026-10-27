@@ -45,12 +45,12 @@ export default function LoginPage() {
             <img src={pub.brand.logo} alt="" className="h-11 w-11 rounded-xl object-cover" />
           ) : (
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-rose-600 text-lg font-bold text-white">
-              {(pub?.brand.name ?? "彪").slice(0, 1)}
+              {(pub?.brand.name ?? "曾").slice(0, 1)}
             </span>
           )}
           <div>
             <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
-              {pub?.brand.name ?? "彪哥财经之英雄本色"}
+              {pub?.brand.name ?? "曾老师"}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {pub?.brand.subtitle ?? "股票投研 · 数据一体化 · AI 辅助工具"}

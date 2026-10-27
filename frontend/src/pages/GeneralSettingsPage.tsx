@@ -142,7 +142,7 @@ export default function GeneralSettingsPage() {
               <img src={brand.logo} alt="当前 Logo" className="h-14 w-14 shrink-0 rounded-xl border border-slate-200 object-cover dark:border-slate-800" />
             ) : (
               <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-rose-600 text-xl font-bold text-white">
-                {brand.name.slice(0, 1) || "彪"}
+                {brand.name.slice(0, 1) || "曾"}
               </span>
             )}
             <div className="min-w-0 flex-1">

@@ -1,4 +1,4 @@
-"""彪哥财经之英雄本色 — 后端配置"""
+"""曾老师 — 后端配置"""
 from __future__ import annotations
 
 import secrets

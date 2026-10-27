@@ -400,7 +400,7 @@ def send_now(user_id: int, date: str | None = None) -> dict:
 
 def test_email(user_id: int, to: list[str] | None = None) -> dict:
     cfg = schedule_config()
-    res = notify.send_email("彪哥财经 · 邮件通道测试",
+    res = notify.send_email("曾老师 · 邮件通道测试",
                             "这是一封测试邮件，收到即说明 SMTP 配置可用。",
                             to or cfg.get("email_to") or [])
     return res

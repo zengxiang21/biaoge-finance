@@ -16,7 +16,7 @@ BRAND_KEY = "site_brand"
 MARKETING_KEY = "marketing"
 
 DEFAULT_BRAND = {
-    "name": "彪哥财经之英雄本色", "subtitle": "A 股看盘 · 策略选股 · AI 复盘", "logo": "", "icp": "",
+    "name": "曾老师", "subtitle": "A 股看盘 · 策略选股 · AI 复盘", "logo": "", "icp": "",
     "footer_note": "数据来自新浪/东财/腾讯公开接口，仅供研究参考，不构成投资建议",
 }
 DEFAULT_MARKETING = {

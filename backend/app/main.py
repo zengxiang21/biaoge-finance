@@ -105,7 +105,7 @@ def _probe_all() -> None:
         time.sleep(0.2)
 
 
-app = FastAPI(title="彪哥财经之英雄本色", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="曾老师", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

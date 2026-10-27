@@ -81,12 +81,12 @@ export default function Layout({ children }: { children: ReactNode }) {
               <img src={brand.logo} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
             ) : (
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose-600 text-sm font-bold text-white">
-                {(brand?.name || "彪").slice(0, 1)}
+                {(brand?.name || "曾").slice(0, 1)}
               </span>
             )}
             {!navCollapsed && (
-              <span className="min-w-0" title={`${brand?.name || "彪哥财经"} ${brand?.subtitle || ""}`}>
-                <span className="block truncate text-sm font-semibold leading-tight">{brand?.name || "彪哥财经"}</span>
+              <span className="min-w-0" title={`${brand?.name || "曾老师"} ${brand?.subtitle || ""}`}>
+                <span className="block truncate text-sm font-semibold leading-tight">{brand?.name || "曾老师"}</span>
                 <span className="block truncate text-[10px] text-slate-400">{brand?.subtitle || "之英雄本色"}</span>
               </span>
             )}
@@ -254,5 +254,5 @@ function pageTitle(path: string): string {
   const hit = PAGE_TITLES.find(([p]) => p !== "/" && path.startsWith(p + "/"));
   if (hit) return hit[1];
   if (path.startsWith("/stock-analysis/")) return "个股诊断";
-  return "彪哥财经之英雄本色";
+  return "曾老师";
 }

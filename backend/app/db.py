@@ -429,7 +429,7 @@ def init_db() -> None:
     from .security import hash_password
 
     seeds = [
-        ("admin", "彪哥", "admin", "Biaoge@2026"),
+        ("admin", "曾老师", "admin", "Biaoge@2026"),
         ("demo", "体验用户", "user", "Demo@2026"),
     ]
     for username, display, role, pwd in seeds:
@@ -540,7 +540,7 @@ def _seed_settings() -> None:
              "features": ["全部看盘", "策略选股", "AI 诊断", "每日复盘", "持仓风控"], "hot": False}])
     if get_setting("site_brand") is None:
         set_setting("site_brand", {
-            "name": "彪哥财经之英雄本色", "subtitle": "A 股看盘 · 策略选股 · AI 复盘",
+            "name": "曾老师", "subtitle": "A 股看盘 · 策略选股 · AI 复盘",
             "logo": "", "icp": "", "footer_note":
                 "数据来自新浪/东财/腾讯公开接口，仅供研究参考，不构成投资建议"})
     if get_setting("smtp") is None:
