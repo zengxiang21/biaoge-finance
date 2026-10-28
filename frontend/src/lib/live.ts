@@ -13,10 +13,13 @@ export type LiveQuote = {
   prevClose: number;
   change: number;
   changePercent: number;
+  open: number;
   high: number;
   low: number;
   /** 上游自己的行情时间 HH:MM:SS */
   at: string;
+  /** 上游行情日期 YYYY-MM-DD（与 at 配对，港美指数和 A 股共用一套字段） */
+  date: string;
 };
 
 /** 大盘全景 / 行情数据页的默认一排：都是指数，代码前缀就是交易所 */
@@ -30,23 +33,44 @@ function num(v: string): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
-/** v_sh000001="1~上证指数~000001~3681.47~3648.30~...~20261028161400~33.17~0.91~3684.49~3652.37~..." */
+/** A 股回 20261028161400 这种紧凑串，港/美指数回 "2026-10-28 11:54:40"（美东）或
+ * "2026/10/28 18:31:23"（港时），统一拆成日期 + 时钟 */
+function splitStamp(stamp: string): { date: string; time: string } {
+  if (/^\d{14}$/.test(stamp)) {
+    return {
+      date: `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}`,
+      time: `${stamp.slice(8, 10)}:${stamp.slice(10, 12)}:${stamp.slice(12, 14)}`,
+    };
+  }
+  const [d, t = ""] = stamp.split(" ");
+  return { date: d ? d.replaceAll("/", "-") : "", time: t };
+}
+
+/** v_sh000001="1~上证指数~000001~3681.47~3648.30~...~20261028161400~33.17~0.91~3684.49~3652.37~..."
+ *  v_usDJI ="200~道琼斯~.DJI~52523.36~52377.57~52335.43~...~2026-10-28 11:55:40~145.79~0.28~52562.60~52335.43~..."
+ *  两套的字段位一致：3 现价、4 昨收、5 今开、30 报价时间、31/32 涨跌、33/34 最高最低 */
 function parseLine(line: string): LiveQuote | null {
-  const m = /^v_([a-z]{2}\d{6})="([^"]*)"/.exec(line.trim());
+  // 变量名三种形态：sh000001 / usDJI / hkHSI（港美代码带大写字母、没有六位数字）
+  const m = /^v_([a-z]{2}[A-Z]*\d*)="([^"]*)"/.exec(line.trim());
   if (!m) return null;
   const f = m[2].split("~");
   if (f.length < 35) return null;
+  const price = num(f[3]);
+  if (!Number.isFinite(price) || price <= 0) return null;
   const stamp = f[30] ?? "";
+  const { date, time } = splitStamp(stamp);
   return {
     symbol: m[1],
     name: f[1],
-    price: num(f[3]),
+    price,
     prevClose: num(f[4]),
     change: num(f[31]),
     changePercent: num(f[32]),
+    open: num(f[5]),
     high: num(f[33]),
     low: num(f[34]),
-    at: stamp.length === 14 ? `${stamp.slice(8, 10)}:${stamp.slice(10, 12)}:${stamp.slice(12, 14)}` : stamp,
+    at: time || stamp,
+    date,
   };
 }
 

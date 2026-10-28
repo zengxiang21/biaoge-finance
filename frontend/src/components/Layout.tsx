@@ -220,8 +220,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             GitHub Actions 交易时段每半小时现抓一轮再冻结的快照，页面也会自己跟上最新一版
             {demoSnap?.at ? `（抓取于 ${demoSnap.at}` : ""}
             {demoSnap?.missed ? `，其中 ${demoSnap.missed} 个环节这一轮没抓到，对应面板会是空的` : ""}
-            {demoSnap?.at ? "）" : ""}，不是实时行情 —— 只有页面顶上那条报价带是浏览器直连
-            腾讯行情、5 秒一跳；策略、持仓、每日复盘和
+            {demoSnap?.at ? "）" : ""}，不是实时行情 —— 页面顶上的报价带和「全球指数」页的报价
+            是浏览器直连腾讯/东财行情、5 秒一跳；策略、持仓、每日复盘和
             AI 诊断要连本机后端，写操作在演示站一律禁用。
           </p>
         )}

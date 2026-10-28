@@ -249,9 +249,11 @@ def export_live(failures: list[str]) -> list[dict]:
     # 只补梯队里的票（默认 80 只封顶，按板数从高到低），detail 单只 ~4s，预算内可控。
     ladder_file = OUT / filename(canon("/dashboard/ladder", {"full": True}))
     pool_symbols: list[str] = []
+    # ladder 那一轮可能整步没抓到（上游挂了就没有 payload 文件），seen 必须先落地，
+    # 否则下面 len(seen) 直接 NameError 把整次导出炸掉
+    seen: set[str] = set()
     if ladder_file.exists():
         lad = json.loads(ladder_file.read_text(encoding="utf-8"))
-        seen: set[str] = set()
         for tier in lad.get("tiers", []):
             for st in tier.get("stocks", []):
                 sym = st.get("symbol")
@@ -277,6 +279,7 @@ def export_live(failures: list[str]) -> list[dict]:
         ):
             key = canon(url, params)
             query = urlencode({k: _val(v) for k, v in params.items() if v not in (None, "")})
+            t0 = time.time()
             try:
                 status, body = asyncio.run(_ask(app, f"api/{key.partition('?')[0]}", query, token))
             except Exception as exc:  # noqa: BLE001
@@ -285,15 +288,17 @@ def export_live(failures: list[str]) -> list[dict]:
                 continue
             if status == 200:
                 size = write(filename(key), json.loads(body))
-                entries.append({"key": key, "file": filename(key), "bytes": size, "status": 200})
+                entries.append({"key": key, "file": filename(key), "bytes": size,
+                                "ms": int((time.time() - t0) * 1000), "status": 200})
             else:
                 entries.append({"key": key, "ms": 0, "status": status, "error": body.decode("utf-8", "replace")[:160]})
                 print(f"[export] {key}: HTTP {status}", flush=True)
     ok = [e for e in entries if e["status"] == 200]
     print(f"\n{'接口':<50}{'kB':>7}{'ms':>8}")
     for e in ok:
-        print(f"{e['key']:<50}{e['bytes'] / 1024:>7.0f}{e['ms']:>8}")
-    print(f"实时接口导出 {len(ok)}/{len(entries)}，合计 {sum(e['bytes'] for e in ok) / 1024:.0f} kB")
+        # 汇总打印别再因个别记录缺字段把整次导出炸掉（10-28 两次 Pages 部署就是这么挂的）
+        print(f"{e['key']:<50}{e.get('bytes', 0) / 1024:>7.0f}{e.get('ms', 0):>8}")
+    print(f"实时接口导出 {len(ok)}/{len(entries)}，合计 {sum(e.get('bytes', 0) for e in ok) / 1024:.0f} kB")
     for e in entries:
         if e["status"] != 200:
             print(f"  未出：{e['key']} -> {e.get('error', '')[:90]}")

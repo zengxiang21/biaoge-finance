@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, messageOf } from "../lib/api";
+import { api, isDemo, messageOf } from "../lib/api";
 import type { EmotionPanel, FearPanel, GlobalIndexResult, GlobalQuote } from "../lib/types";
 import { num, price, timeAgo } from "../lib/format";
+import { applyLive, fetchGlobalLive, type GlobalLive } from "../lib/liveGlobal";
 import { AshareStrip, QuoteGroupCard, SourceErrors } from "../components/global-quote";
 import { TrendLine, type TrendPoint } from "../components/charts";
 import {
@@ -23,11 +24,16 @@ const FEAR_TONE: Record<string, "emerald" | "amber" | "rose"> = {
   紧张: "amber", 恐慌: "rose", 极端恐慌: "rose",
 };
 
+/** 演示模式的实时一跳周期，与顶上报价带一致 */
+const LIVE_EVERY_MS = 5_000;
+
 export default function GlobalIndexPage() {
   const [data, setData] = useState<GlobalIndexResult | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  // 演示模式的实时覆盖：价/涨跌来自浏览器直连腾讯+东财，其余仍是预抓快照
+  const [live, setLive] = useState<GlobalLive | null>(null);
   // 自己走的时钟：不重新拉数据也要让「X 分钟前 / 下次刷新 N 秒后」保持鲜活
   const [nowMs, setNowMs] = useState(() => Date.now());
   const loadedAtRef = useRef(Date.now());
@@ -58,11 +64,33 @@ export default function GlobalIndexPage() {
     };
   }, [load]);
 
+  useEffect(() => {
+    if (!isDemo) return;
+    let alive = true;
+    // fetchGlobalLive 内部按源兜底、失败保留上一跳，本身不会 reject
+    const run = async () => {
+      const got = await fetchGlobalLive();
+      if (alive) setLive(got);
+    };
+    void run();
+    const timer = window.setInterval(run, LIVE_EVERY_MS);
+    const onVisible = () => { if (!document.hidden) void run(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
+  // 展示视图：快照之上盖实时报价；连本机后端时 live 恒为 null，走原始数据
+  const view = useMemo(() => (data ? applyLive(data, isDemo ? live : null) : data), [data, live]);
+
   const cols: Column<GlobalQuote>[] = useMemo(() => [
     { key: "name", label: "名称", value: (r) => r.name, render: (r) => (
       <span className="whitespace-normal text-[13px] text-slate-800 dark:text-slate-100">{r.name}</span>) },
-    { key: "group", label: "分组", value: (r) => groupOf(data, r.code), render: (r) => (
-      <span className="text-xs text-slate-500 dark:text-slate-400">{groupOf(data, r.code)}</span>) },
+    { key: "group", label: "分组", value: (r) => groupOf(view, r.code), render: (r) => (
+      <span className="text-xs text-slate-500 dark:text-slate-400">{groupOf(view, r.code)}</span>) },
     { key: "price", label: "最新价", align: "right", value: (r) => r.price, render: (r) => (
       <span className="nums">{price(r.price, r.price !== null && r.price < 10 ? 4 : 2)}</span>) },
     { key: "chg", label: "涨跌额", align: "right", value: (r) => r.change_price, render: (r) => (
@@ -79,66 +107,74 @@ export default function GlobalIndexPage() {
       render: (r) => <span className="nums text-slate-500">{price(r.prev_close)}</span> },
     { key: "date", label: "报价时间", value: (r) => r.date, render: (r) => (
       <span className="nums text-[11px] text-slate-400">{r.date ?? "—"} {r.time?.slice(0, 5) ?? ""}</span>) },
-  ], [data]);
+  ], [view]);
 
   const kw = filter.trim();
-  const rows = kw ? (data?.rows ?? []).filter((r) => r.name.includes(kw) || r.code.includes(kw))
-    : (data?.rows ?? []);
+  const rows = kw ? (view?.rows ?? []).filter((r) => r.name.includes(kw) || r.code.includes(kw))
+    : (view?.rows ?? []);
   const clock = new Date(nowMs).toLocaleTimeString("zh-CN", { hour12: false });
   const nextIn = Math.max(0, 60 - Math.round((nowMs - loadedAtRef.current) / 1000));
+  const liveOn = isDemo && !!live;
 
   return (
     <div className="space-y-4">
       <Panel
         title="全球风险温度"
-        subtitle={data
-          ? `更新于 ${data.generatedAt} · ${data.rows.length} 个外围标的 · ${data.groups.length} 组`
-          : error ?? "正在读取新浪外围行情与 CBOE 恐慌指数…"}
+        subtitle={view
+          ? `${liveOn ? `实时报价 ${live!.at}（浏览器直连，5 秒一跳）· 快照抓取于 ${view.generatedAt}`
+            : `更新于 ${view.generatedAt}`} · ${view.rows.length} 个外围标的 · ${view.groups.length} 组`
+          : error ?? "正在读取外围行情与 CBOE 恐慌指数…"}
         right={(
           <>
-            <Metric label="全球均值" value={data?.riskOn === null || data?.riskOn === undefined
-              ? "—" : `${data.riskOn >= 0 ? "+" : ""}${data.riskOn.toFixed(2)}%`}
-              tone={data?.riskOn === null || data?.riskOn === undefined ? undefined
-                : data.riskOn >= 0 ? "up" : "down"} />
-            <Button size="sm" variant="outline" loading={busy && !!data} onClick={() => void load(true)}>刷新</Button>
+            <Metric label="全球均值" value={view?.riskOn === null || view?.riskOn === undefined
+              ? "—" : `${view.riskOn >= 0 ? "+" : ""}${view.riskOn.toFixed(2)}%`}
+              tone={view?.riskOn === null || view?.riskOn === undefined ? undefined
+                : view.riskOn >= 0 ? "up" : "down"} />
+            <Button size="sm" variant="outline" loading={busy && !!view} onClick={() => void load(true)}>刷新</Button>
           </>
         )}
       >
-        {busy && !data ? <Skeleton className="h-20 w-full" /> : (
+        {busy && !view ? <Skeleton className="h-20 w-full" /> : (
           <>
-            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{data?.note}</p>
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              {view?.note}
+              {liveOn ? "；演示站在这份快照之上，用浏览器直连腾讯/东财行情把价格与涨跌刷新到实时，"
+                + "VIX、富时A50期货与情绪分仍取自快照" : ""}
+            </p>
             <div className="mt-3">
               <p className="mb-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">A 股对照</p>
-              <AshareStrip rows={data?.aShare ?? []} />
+              <AshareStrip rows={view?.aShare ?? []} />
             </div>
           </>
         )}
-        <SourceErrors errors={data?.errors ?? {}} />
+        <SourceErrors errors={view?.errors ?? {}} />
         <p className="nums mt-3 text-[11px] text-slate-400">
-          现在 {clock} · 数据 {timeAgo(data?.generatedAt)} · 约 {nextIn} 秒后再拉（页面自己刷新，不用手点）
+          现在 {clock} · {liveOn
+            ? `价格实时直连，最近一跳 ${live!.at} · 预抓快照 ${timeAgo(view?.generatedAt)}`
+            : `数据 ${timeAgo(view?.generatedAt)} · 约 ${nextIn} 秒后再拉（页面自己刷新，不用手点）`}
         </p>
       </Panel>
 
-      <FearCard fear={data?.fear ?? null} busy={busy && !data} />
-      <EmotionCard emotion={data?.emotion ?? null} />
+      <FearCard fear={view?.fear ?? null} busy={busy && !view} />
+      <EmotionCard emotion={view?.emotion ?? null} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {busy && !data && [0, 1, 2].map((i) => <Skeleton key={i} className="h-44 w-full" />)}
-        {(data?.groups ?? []).map((g) => (
+        {busy && !view && [0, 1, 2].map((i) => <Skeleton key={i} className="h-44 w-full" />)}
+        {(view?.groups ?? []).map((g) => (
           <QuoteGroupCard key={g.key} group={g} />
         ))}
       </div>
 
       <Panel
         title="外围行情明细"
-        subtitle={data ? `按涨跌幅排序 · 共 ${rows.length} 行${kw ? `（筛选「${kw}」）` : ""}` : ""}
+        subtitle={view ? `按涨跌幅排序 · 共 ${rows.length} 行${kw ? `（筛选「${kw}」）` : ""}` : ""}
         right={(
           <input value={filter} onChange={(e) => setFilter(e.target.value)}
             placeholder="筛名称/代码" className={cn(inputClass, "h-8 w-28! shrink-0 !py-1 text-xs")} />
         )}
         bodyClass="p-0"
       >
-        <DataTable columns={cols} rows={rows} rowKey={(r) => r.code} loading={busy && !data}
+        <DataTable columns={cols} rows={rows} rowKey={(r) => r.code} loading={busy && !view}
           dense maxHeight="520px" sortInitial={{ key: "pct", desc: true }}
           empty={`没有匹配「${kw}」的外围标的`} />
       </Panel>
