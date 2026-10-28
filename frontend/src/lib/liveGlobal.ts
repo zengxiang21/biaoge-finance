@@ -12,7 +12,7 @@
  *  - VIX（腾讯给的是 9 月的死数）、富时A50期货、CBOE 序列没有可靠的直连源，保持快照。
  */
 import { fetchLiveQuotes, LIVE_INDEXES, type LiveQuote } from "./live";
-import type { GlobalIndexResult, GlobalQuote, IndexQuote } from "./types";
+import type { CommodityResult, GlobalGroup, GlobalIndexResult, GlobalQuote, IndexQuote } from "./types";
 
 /** 后端全球行情的行代码（app/providers/sina.py GLOBAL_INDEXES）→ 腾讯代码 */
 const TENCENT_OF: Record<string, string> = {
@@ -159,15 +159,17 @@ export async function fetchGlobalLive(aShareSymbols: string[] = LIVE_INDEXES): P
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;
 
-/** 把实时报价盖到 payload 上：rows / groups / aShare / riskOn 跟着刷新，
- *  fear、emotion、errors、note 保持快照口径。纯函数，方便按状态推导渲染。 */
-export function applyLive(data: GlobalIndexResult, live: GlobalLive | null): GlobalIndexResult {
-  if (!live) return data;
-  const patchQuote = <T extends GlobalQuote>(r: T): T => {
+function patchQuoteOf(live: GlobalLive) {
+  return <T extends GlobalQuote>(r: T): T => {
     const p = live.quotes[r.code];
     return p ? { ...r, ...p } : r;
   };
-  const groups = data.groups.map((g) => {
+}
+
+/** 组内行盖实时价后重排（涨跌幅降序、空值垫底）并重算均值，与后端 _group_rows 同口径 */
+function mergeGroups(groups: GlobalGroup[], live: GlobalLive): GlobalGroup[] {
+  const patchQuote = patchQuoteOf(live);
+  return groups.map((g) => {
     const rows = g.rows.map(patchQuote);
     rows.sort((a, b) => ((a.change_percent === null) !== (b.change_percent === null)
       ? (a.change_percent === null ? 1 : -1)
@@ -175,22 +177,53 @@ export function applyLive(data: GlobalIndexResult, live: GlobalLive | null): Glo
     const vals = rows.map((r) => r.change_percent).filter((v): v is number => v !== null);
     return { ...g, rows, avgChange: vals.length ? round2(vals.reduce((s, v) => s + v, 0) / vals.length) : null };
   });
-  const aShare = data.aShare.map((q): IndexQuote => {
+}
+
+/** A 股对照：IndexQuote 数值字段不可空，这一跳字段不全就整行保留快照 */
+function mergeAShare(rows: IndexQuote[], live: GlobalLive): IndexQuote[] {
+  return rows.map((q) => {
     const p = live.aShare[q.symbol];
-    // IndexQuote 的数值字段不可空，腾讯这跳字段不全就整行保留快照
     if (!p || p.change_price === null || p.change_percent === null
       || p.open === null || p.high === null || p.low === null || p.prev_close === null) return q;
     return { ...q, price: p.price, change_price: p.change_price, change_percent: p.change_percent,
       open: p.open, high: p.high, low: p.low, prev_close: p.prev_close,
       date: p.date || q.date, time: p.time || q.time };
   });
-  const vals = groups.flatMap((g) => g.rows.map((r) => r.change_percent))
-    .filter((v): v is number => v !== null);
+}
+
+const liveVals = (groups: GlobalGroup[]): number[] =>
+  groups.flatMap((g) => g.rows.map((r) => r.change_percent)).filter((v): v is number => v !== null);
+
+/** 把实时报价盖到全球指数 payload 上：rows / groups / aShare / riskOn 跟着刷新，
+ *  fear、emotion、errors、note 保持快照口径。纯函数，方便按状态推导渲染。 */
+export function applyLive(data: GlobalIndexResult, live: GlobalLive | null): GlobalIndexResult {
+  if (!live) return data;
+  const patchQuote = patchQuoteOf(live);
+  const groups = mergeGroups(data.groups, live);
+  const vals = liveVals(groups);
   return {
     ...data,
     groups,
     rows: data.rows.map(patchQuote),
-    aShare,
+    aShare: mergeAShare(data.aShare, live),
     riskOn: vals.length ? round2(vals.reduce((s, v) => s + v, 0) / vals.length) : data.riskOn,
   };
+}
+
+/** 原油黄金页的覆盖：rows / groups / fx / aShare / 金油比跟着实时价刷新。
+ *  商品期货与富时A50期货暂无验证过的直连源（东财外盘 secid 未核实），保持快照。 */
+export function applyCommodityLive(data: CommodityResult, live: GlobalLive | null): CommodityResult {
+  if (!live) return data;
+  const patchQuote = patchQuoteOf(live);
+  const groups = mergeGroups(data.groups, live);
+  const rows = data.rows.map(patchQuote);
+  const fx = data.fx.map(patchQuote);
+  const aShare = mergeAShare(data.aShare, live);
+  const by = new Map([...rows, ...fx].map((r) => [r.code, r]));
+  const gold = by.get("hf_GC");
+  const oil = by.get("hf_CL");
+  const goldOilRatio = gold?.price != null && gold.price > 0 && oil?.price != null && oil.price > 0
+    ? round2(gold.price / oil.price)
+    : data.goldOilRatio;
+  return { ...data, groups, rows, fx, aShare, goldOilRatio };
 }

@@ -4,7 +4,7 @@ import { api, isDemo, messageOf } from "../lib/api";
 import type { EmotionPanel, FearPanel, GlobalIndexResult, GlobalQuote } from "../lib/types";
 import { num, price, timeAgo } from "../lib/format";
 import { applyLive, fetchGlobalLive, type GlobalLive } from "../lib/liveGlobal";
-import { AshareStrip, QuoteGroupCard, SourceErrors } from "../components/global-quote";
+import { QuoteGroupCard, SourceErrors } from "../components/global-quote";
 import { TrendLine, type TrendPoint } from "../components/charts";
 import {
   Button, Chip, DataTable, Panel, Skeleton, UpDown, cn, inputClass, type Column,
@@ -28,6 +28,8 @@ const FEAR_TONE: Record<string, "emerald" | "amber" | "rose"> = {
 const LIVE_EVERY_MS = 5_000;
 /** 跳价闪烁时长，与顶上报价带同一套反馈 */
 const FLASH_MS = 900;
+/** 美股大卡固定展示的三只指数，顺序即展示顺序 */
+const US_CODES = ["gb_$dji", "gb_$ixic", "gb_$inx"];
 
 export default function GlobalIndexPage() {
   const [data, setData] = useState<GlobalIndexResult | null>(null);
@@ -161,10 +163,6 @@ export default function GlobalIndexPage() {
               {liveOn ? "；演示站在这份快照之上，用浏览器直连腾讯/东财行情把价格与涨跌刷新到实时，"
                 + "VIX、富时A50期货与情绪分仍取自快照" : ""}
             </p>
-            <div className="mt-3">
-              <p className="mb-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">A 股对照</p>
-              <AshareStrip rows={view?.aShare ?? []} flash={liveOn ? flash : undefined} />
-            </div>
           </>
         )}
         <SourceErrors errors={view?.errors ?? {}} />
@@ -175,12 +173,48 @@ export default function GlobalIndexPage() {
         </p>
       </Panel>
 
+      <Panel
+        title="美股三指数"
+        subtitle={liveOn ? "浏览器直连腾讯源，5 秒一跳，跳价闪一下" : "外围行情快照"}
+        right={liveOn ? <span className="nums text-[11px] text-slate-400">最近一跳 {live!.at}</span> : undefined}
+      >
+        {!view ? <Skeleton className="h-28 w-full" /> : (
+          <div className="grid gap-3 sm:grid-cols-3">
+            {US_CODES.map((code) => {
+              const q = view.rows.find((r) => r.code === code);
+              if (!q) return null;
+              const hit = liveOn ? flash[code] : undefined;
+              return (
+                <div key={code} className={cn("rounded-xl border p-4 transition-colors duration-300",
+                  hit === "up" ? "border-rose-300 bg-rose-100 dark:border-rose-500/40 dark:bg-rose-500/15"
+                    : hit === "down" ? "border-emerald-300 bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/15"
+                      : "border-slate-200/80 bg-white/70 dark:border-slate-700/60 dark:bg-slate-900/40")}>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{q.name}</p>
+                  <p className="nums mt-1.5 text-3xl leading-none font-semibold text-slate-800 dark:text-slate-100">
+                    {price(q.price)}
+                  </p>
+                  <p className="mt-2.5 flex items-baseline gap-1.5">
+                    <UpDown value={q.change_percent} className="text-sm" />
+                    <span className="nums text-xs text-slate-500 dark:text-slate-400">
+                      {num(q.change_price, 2)}
+                    </span>
+                  </p>
+                  <p className="nums mt-2.5 text-[11px] text-slate-400">
+                    报价 {q.date ?? "—"} {q.time?.slice(0, 5) ?? ""}（美东）
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
+
       <FearCard fear={view?.fear ?? null} busy={busy && !view} />
       <EmotionCard emotion={view?.emotion ?? null} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {busy && !view && [0, 1, 2].map((i) => <Skeleton key={i} className="h-44 w-full" />)}
-        {(view?.groups ?? []).map((g) => (
+        {(view?.groups ?? []).filter((g) => g.key !== "美股").map((g) => (
           <QuoteGroupCard key={g.key} group={g} flash={liveOn ? flash : undefined} />
         ))}
       </div>
