@@ -245,6 +245,50 @@ def export_live(failures: list[str]) -> list[dict]:
         rec.update(status=200, file=filename(key), bytes=write(filename(key), json.loads(body)))
         entries.append(rec)
 
+    # 涨停/炸板/跌停三池的票补个股 payload：日线走 ingest 灌好的本地缓存，不再打上游。
+    # 只补梯队里的票（默认 80 只封顶，按板数从高到低），detail 单只 ~4s，预算内可控。
+    ladder_file = OUT / filename(canon("/dashboard/ladder", {"full": True}))
+    pool_symbols: list[str] = []
+    if ladder_file.exists():
+        lad = json.loads(ladder_file.read_text(encoding="utf-8"))
+        seen: set[str] = set()
+        for tier in lad.get("tiers", []):
+            for st in tier.get("stocks", []):
+                sym = st.get("symbol")
+                if sym and sym not in seen:
+                    seen.add(sym)
+                    pool_symbols.append(sym)
+        for pool_key in ("blown", "down"):
+            for st in lad.get(pool_key, []):
+                sym = st.get("symbol")
+                if sym and sym not in seen:
+                    seen.add(sym)
+                    pool_symbols.append(sym)
+    pool_symbols = pool_symbols[: int(os.environ.get("DEMO_POOL_EXPORT_MAX", "80"))]
+    print(f"[pools] 三池共 {len(seen)} 只，补前 {len(pool_symbols)} 只的个股 payload", flush=True)
+    for sym in pool_symbols:
+        if left() < 60:
+            failures.append(f"个股 payload: 时间预算用完，{sym} 起跳过")
+            print(f"[pools] 预算只剩 {left():.0f}s，{sym} 起跳过", flush=True)
+            break
+        for url, params in (
+            ("/market-data/quotes/daily", {"symbol": sym, "days": 120}),
+            ("/stock-analysis/detail", {"symbol": sym, "days": 120}),
+        ):
+            key = canon(url, params)
+            query = urlencode({k: _val(v) for k, v in params.items() if v not in (None, "")})
+            try:
+                status, body = asyncio.run(_ask(app, f"api/{key.partition('?')[0]}", query, token))
+            except Exception as exc:  # noqa: BLE001
+                entries.append({"key": key, "error": f"{type(exc).__name__}: {exc}"[:160]})
+                print(f"[export] {key}: EXCEPTION {type(exc).__name__}: {exc}", flush=True)
+                continue
+            if status == 200:
+                size = write(filename(key), json.loads(body))
+                entries.append({"key": key, "file": filename(key), "bytes": size, "status": 200})
+            else:
+                entries.append({"key": key, "status": status, "error": body.decode("utf-8", "replace")[:160]})
+                print(f"[export] {key}: HTTP {status}", flush=True)
     ok = [e for e in entries if e["status"] == 200]
     print(f"\n{'接口':<50}{'kB':>7}{'ms':>8}")
     for e in ok:
