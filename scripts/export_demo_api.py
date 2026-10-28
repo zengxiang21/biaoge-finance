@@ -280,14 +280,14 @@ def export_live(failures: list[str]) -> list[dict]:
             try:
                 status, body = asyncio.run(_ask(app, f"api/{key.partition('?')[0]}", query, token))
             except Exception as exc:  # noqa: BLE001
-                entries.append({"key": key, "error": f"{type(exc).__name__}: {exc}"[:160]})
+                entries.append({"key": key, "ms": 0, "error": f"{type(exc).__name__}: {exc}"[:160]})
                 print(f"[export] {key}: EXCEPTION {type(exc).__name__}: {exc}", flush=True)
                 continue
             if status == 200:
                 size = write(filename(key), json.loads(body))
                 entries.append({"key": key, "file": filename(key), "bytes": size, "status": 200})
             else:
-                entries.append({"key": key, "status": status, "error": body.decode("utf-8", "replace")[:160]})
+                entries.append({"key": key, "ms": 0, "status": status, "error": body.decode("utf-8", "replace")[:160]})
                 print(f"[export] {key}: HTTP {status}", flush=True)
     ok = [e for e in entries if e["status"] == 200]
     print(f"\n{'接口':<50}{'kB':>7}{'ms':>8}")
