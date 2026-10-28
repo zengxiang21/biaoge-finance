@@ -26,6 +26,8 @@ const FEAR_TONE: Record<string, "emerald" | "amber" | "rose"> = {
 
 /** 演示模式的实时一跳周期，与顶上报价带一致 */
 const LIVE_EVERY_MS = 5_000;
+/** 跳价闪烁时长，与顶上报价带同一套反馈 */
+const FLASH_MS = 900;
 
 export default function GlobalIndexPage() {
   const [data, setData] = useState<GlobalIndexResult | null>(null);
@@ -34,6 +36,9 @@ export default function GlobalIndexPage() {
   const [filter, setFilter] = useState("");
   // 演示模式的实时覆盖：价/涨跌来自浏览器直连腾讯+东财，其余仍是预抓快照
   const [live, setLive] = useState<GlobalLive | null>(null);
+  // 跳价闪烁：key 是外围行 code 或 A 股 symbol，值是这一跳的方向
+  const [flash, setFlash] = useState<Record<string, "up" | "down">>({});
+  const lastPriceRef = useRef<Record<string, number>>({});
   // 自己走的时钟：不重新拉数据也要让「X 分钟前 / 下次刷新 N 秒后」保持鲜活
   const [nowMs, setNowMs] = useState(() => Date.now());
   const loadedAtRef = useRef(Date.now());
@@ -70,7 +75,19 @@ export default function GlobalIndexPage() {
     // fetchGlobalLive 内部按源兜底、失败保留上一跳，本身不会 reject
     const run = async () => {
       const got = await fetchGlobalLive();
-      if (alive) setLive(got);
+      if (!alive) return;
+      // 和顶上报价带一样：价比上一跳变了就闪一拍，让「在刷新」看得见
+      const changed: Record<string, "up" | "down"> = {};
+      for (const [key, p] of [...Object.entries(got.quotes), ...Object.entries(got.aShare)]) {
+        const prev = lastPriceRef.current[key];
+        if (prev !== undefined && p.price !== prev) changed[key] = p.price > prev ? "up" : "down";
+        lastPriceRef.current[key] = p.price;
+      }
+      setLive(got);
+      if (Object.keys(changed).length) {
+        setFlash(changed);
+        window.setTimeout(() => { if (alive) setFlash({}); }, FLASH_MS);
+      }
     };
     void run();
     const timer = window.setInterval(run, LIVE_EVERY_MS);
@@ -92,7 +109,10 @@ export default function GlobalIndexPage() {
     { key: "group", label: "分组", value: (r) => groupOf(view, r.code), render: (r) => (
       <span className="text-xs text-slate-500 dark:text-slate-400">{groupOf(view, r.code)}</span>) },
     { key: "price", label: "最新价", align: "right", value: (r) => r.price, render: (r) => (
-      <span className="nums">{price(r.price, r.price !== null && r.price < 10 ? 4 : 2)}</span>) },
+      <span className={cn("nums rounded px-0.5 transition-colors duration-300",
+        flash[r.code] === "up" && "bg-rose-100 dark:bg-rose-500/20",
+        flash[r.code] === "down" && "bg-emerald-100 dark:bg-emerald-500/20")}>
+        {price(r.price, r.price !== null && r.price < 10 ? 4 : 2)}</span>) },
     { key: "chg", label: "涨跌额", align: "right", value: (r) => r.change_price, render: (r) => (
       <span className="nums text-slate-500 dark:text-slate-400">{num(r.change_price, 2)}</span>) },
     { key: "pct", label: "涨跌幅", align: "right", value: (r) => r.change_percent,
@@ -107,7 +127,7 @@ export default function GlobalIndexPage() {
       render: (r) => <span className="nums text-slate-500">{price(r.prev_close)}</span> },
     { key: "date", label: "报价时间", value: (r) => r.date, render: (r) => (
       <span className="nums text-[11px] text-slate-400">{r.date ?? "—"} {r.time?.slice(0, 5) ?? ""}</span>) },
-  ], [view]);
+  ], [view, flash]);
 
   const kw = filter.trim();
   const rows = kw ? (view?.rows ?? []).filter((r) => r.name.includes(kw) || r.code.includes(kw))
@@ -143,7 +163,7 @@ export default function GlobalIndexPage() {
             </p>
             <div className="mt-3">
               <p className="mb-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">A 股对照</p>
-              <AshareStrip rows={view?.aShare ?? []} />
+              <AshareStrip rows={view?.aShare ?? []} flash={liveOn ? flash : undefined} />
             </div>
           </>
         )}
@@ -161,7 +181,7 @@ export default function GlobalIndexPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {busy && !view && [0, 1, 2].map((i) => <Skeleton key={i} className="h-44 w-full" />)}
         {(view?.groups ?? []).map((g) => (
-          <QuoteGroupCard key={g.key} group={g} />
+          <QuoteGroupCard key={g.key} group={g} flash={liveOn ? flash : undefined} />
         ))}
       </div>
 

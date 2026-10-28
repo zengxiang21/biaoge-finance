@@ -2,13 +2,15 @@ import { GlobalQuote } from "../lib/types";
 import { num, price } from "../lib/format";
 import { cn } from "./ui";
 
-/** 分组行情卡：一组（美股/能源/汇率…）一个小卡，卡头给组内平均涨跌幅 */
+/** 分组行情卡：一组（美股/能源/汇率…）一个小卡，卡头给组内平均涨跌幅。
+ *  flash 按 q.code 给刚跳过价的行一拍红/绿底，和顶上报价带同一套反馈 */
 export function QuoteGroupCard({
-  group, unitHint, onRowClick,
+  group, unitHint, onRowClick, flash,
 }: {
   group: { key: string; label: string; rows: GlobalQuote[]; avgChange: number | null };
   unitHint?: (q: GlobalQuote) => string | null;
   onRowClick?: (q: GlobalQuote) => void;
+  flash?: Record<string, "up" | "down">;
 }) {
   const avg = group.avgChange;
   return (
@@ -25,8 +27,11 @@ export function QuoteGroupCard({
           const up = (q.change_percent ?? 0) >= 0;
           const flat = q.change_percent === null || q.change_percent === 0;
           const hint = unitHint?.(q) ?? null;
+          const hit = flash?.[q.code];
           return (
-            <li key={q.code}>
+            <li key={q.code} className={cn("transition-colors duration-300",
+              hit === "up" && "bg-rose-100 dark:bg-rose-500/20",
+              hit === "down" && "bg-emerald-100 dark:bg-emerald-500/20")}>
               <button type="button" disabled={!onRowClick} onClick={() => onRowClick?.(q)}
                 title={`${q.name} ${q.date ?? ""} ${q.time ?? ""}${hint ? ` · ${hint}` : ""}`}
                 className={cn("flex w-full items-start gap-2 px-3 py-1.5 text-left",
@@ -60,17 +65,20 @@ export function QuoteGroupCard({
   );
 }
 
-/** 外围标的与 A 股的对照条：指数涨跌并排，判断传导方向 */
-export function AshareStrip({ rows }: { rows: { symbol: string; name?: string; label?: string;
-  price?: number | null; change_percent?: number | null }[] }) {
+/** 外围标的与 A 股的对照条：指数涨跌并排，判断传导方向；flash 按 r.symbol 闪烁跳价 */
+export function AshareStrip({ rows, flash }: { rows: { symbol: string; name?: string; label?: string;
+  price?: number | null; change_percent?: number | null }[]; flash?: Record<string, "up" | "down"> }) {
   if (!rows.length) return null;
   return (
     <div className="flex flex-wrap gap-2">
       {rows.map((r) => {
         const up = (r.change_percent ?? 0) >= 0;
+        const hit = flash?.[r.symbol];
         return (
           <div key={r.symbol}
-            className="rounded-lg border border-slate-200/80 bg-white/70 px-2.5 py-1.5 dark:border-slate-700/60 dark:bg-slate-900/40">
+            className={cn("rounded-lg border border-slate-200/80 bg-white/70 px-2.5 py-1.5 transition-colors duration-300 dark:border-slate-700/60 dark:bg-slate-900/40",
+              hit === "up" && "border-rose-200 bg-rose-100 dark:border-rose-500/40 dark:bg-rose-500/20",
+              hit === "down" && "border-emerald-200 bg-emerald-100 dark:border-emerald-500/40 dark:bg-emerald-500/20")}>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">{r.label ?? r.name ?? r.symbol}</p>
             <p className="nums mt-0.5 text-xs">
               <span className="text-slate-700 dark:text-slate-200">{num(r.price ?? null, 2)}</span>
