@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Chip } from "../components/ui";
+import { api } from "../lib/api";
 
 const VALUE_PROPS = [
   { title: "全景看盘", text: "指数强弱、涨跌广度、市场情绪、板块热度与个股榜单一屏掌握" },
@@ -13,8 +14,8 @@ export default function WelcomePage() {
   const [health, setHealth] = useState<{ ok: boolean; snapshotDate: string | null } | null>(null);
 
   useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
+    // 演示站走 demoGet 读预抓的 health.json；本机走 axios。裸 fetch 会绕过 demo 分支打到根路径 404
+    api.get<{ ok: boolean; snapshotDate?: string | null }>("/health")
       .then((d) => setHealth({ ok: !!d.ok, snapshotDate: d.snapshotDate ?? null }))
       .catch(() => setHealth({ ok: false, snapshotDate: null }));
   }, []);
