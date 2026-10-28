@@ -7,6 +7,8 @@ import { IntradayLine, KlineChart } from "../components/charts";
 import {
   Button, Chip, DataTable, EmptyState, Panel, Skeleton, UpDown, cn, inputClass,
 } from "../components/ui";
+import { LiveTicker } from "../components/LiveTicker";
+import { LIVE_INDEXES } from "../lib/live";
 import { toast } from "../store/toast";
 
 const RECENT_KEY = "tsp-saas.stock-analysis.recent";
@@ -93,6 +95,7 @@ export default function QuotesPage() {
 
   return (
     <div className="space-y-4">
+      <LiveTicker symbols={[symbol, ...LIVE_INDEXES.filter((s) => s !== symbol)]} />
       <Panel
         title="行情数据"
         subtitle="实时报价 + 分时 + 日线与技术位，报价/日线主源新浪，分时的东财源本机不通、由腾讯兜底"

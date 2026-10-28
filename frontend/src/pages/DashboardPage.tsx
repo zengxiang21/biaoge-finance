@@ -12,6 +12,7 @@ import {
 import {
   Button, Chip, DataTable, EmptyState, Panel, PermissionGate, Skeleton, UpDown, cn, inputClass,
 } from "../components/ui";
+import { LiveTicker } from "../components/LiveTicker";
 import { toast } from "../store/toast";
 import { useSession } from "../store/session";
 
@@ -136,6 +137,8 @@ export default function DashboardPage() {
         </Banner>
       )}
       {data.degraded && !offline && <Banner tone="sky">{data.degradedReason}</Banner>}
+
+      <LiveTicker />
 
       {/* 顶部：交易日 + 时段 + 操作 */}
       <div className="flex flex-wrap items-center gap-2">
