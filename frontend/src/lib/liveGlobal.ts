@@ -21,13 +21,15 @@ const TENCENT_OF: Record<string, string> = {
   "gb_$inx": "usINX",
   rt_hkHSI: "hkHSI",
   int_hangseng: "hkHSI",
+  // 腾讯外汇 310~ 短格式，24 小时连续报价；离岸人民币腾讯只有口径不同的在岸
+  // USDCNY，不冒充，fx_susdcnh 仍走东财
+  DINIW: "whUSDX",
 };
 
 /** 腾讯没有的外围标的 → 东财 secid（市场.代码） */
 const EM_OF: Record<string, string> = {
   int_nikkei: "100.N225",
   int_ftse: "100.FTSE",
-  DINIW: "100.UDI",
   fx_susdcnh: "133.USDCNH",
 };
 

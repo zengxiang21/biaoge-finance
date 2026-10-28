@@ -54,6 +54,8 @@ function parseLine(line: string): LiveQuote | null {
   const m = /^v_([a-z]{2}[A-Z]*\d*)="([^"]*)"/.exec(line.trim());
   if (!m) return null;
   const f = m[2].split("~");
+  // 外汇是 310~ 的短格式：3 现价、5 时间、6 昨收、7 今开、8/9 高低、12/13 涨跌
+  if (f[0] === "310") return parseWhLine(m[1], f);
   if (f.length < 35) return null;
   const price = num(f[3]);
   if (!Number.isFinite(price) || price <= 0) return null;
@@ -71,6 +73,26 @@ function parseLine(line: string): LiveQuote | null {
     low: num(f[34]),
     at: time || stamp,
     date,
+  };
+}
+
+/** v_whUSDX="310~美元指数~USDX~102.3500~0~20261029015644~102.3800~102.3800~102.4900~102.2100~~~-0.0300~-0.03~...~2026-10-28" */
+function parseWhLine(symbol: string, f: string[]): LiveQuote | null {
+  const price = num(f[3]);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const { date, time } = splitStamp(f[5] ?? "");
+  return {
+    symbol,
+    name: f[1],
+    price,
+    prevClose: num(f[6]),
+    change: num(f[12]),
+    changePercent: num(f[13]),
+    open: num(f[7]),
+    high: num(f[8]),
+    low: num(f[9]),
+    at: time,
+    date: date || (f[21] ?? ""),
   };
 }
 
