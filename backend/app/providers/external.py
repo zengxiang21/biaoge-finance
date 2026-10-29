@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import io
 from datetime import datetime
+from urllib.parse import quote
 
 from .base import ProviderError, fetch
 
@@ -126,3 +127,52 @@ def _us_date(v: str | None) -> str | None:
         except ValueError:
             continue
     return None
+
+
+# ---------------------------------------------------------------- Yahoo 兜底
+# 新浪没有、东财 push2 对数据中心 IP 掐断的外围标的（韩国 KOSPI ^KS11）走 Yahoo。
+# v8 chart 免 crumb，但 Yahoo 对云 IP 时有 429，失败返回 None 少一行即可。
+YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart"
+
+
+def yahoo_index_quote(symbol: str, name: str) -> dict | None:
+    try:
+        raw = fetch(f"{YAHOO_CHART}/{quote(symbol, safe='')}", provider="yahoo",
+                    capability="global_index", params={"range": "1d", "interval": "1d"},
+                    timeout=8.0, retries=0)
+    except ProviderError:
+        return None
+    try:
+        result = ((raw or {}).get("chart") or {}).get("result") or []
+        meta = (result[0] or {}).get("meta") or {}
+    except (IndexError, AttributeError):
+        return None
+    price = meta.get("regularMarketPrice")
+    if not isinstance(price, (int, float)):
+        return None
+    prev = meta.get("chartPreviousClose") or meta.get("previousClose")
+    change_price = change_percent = None
+    if isinstance(prev, (int, float)) and prev:
+        change_price = round(price - prev, 4)
+        change_percent = round((price / prev - 1) * 100, 2)
+    quote_arr = (((result[0].get("indicators") or {}).get("quote") or [None])[0]) or {}
+    bar = {k: (v or [None])[0] for k, v in quote_arr.items()} if quote_arr else {}
+
+    def _f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    ts = meta.get("regularMarketTime")
+    dt = datetime.fromtimestamp(ts) if isinstance(ts, (int, float)) and ts > 0 else None
+    return {
+        "code": "100.KS11", "name": name,
+        "price": round(float(price), 4),
+        "change_price": change_price, "change_percent": change_percent,
+        "open": _f(bar.get("open")), "high": _f(bar.get("high")), "low": _f(bar.get("low")),
+        "prev_close": _f(prev),
+        "amount": None,
+        "date": dt.strftime("%Y-%m-%d") if dt else None,
+        "time": dt.strftime("%H:%M:%S") if dt else None,
+    }

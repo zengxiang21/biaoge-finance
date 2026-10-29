@@ -101,8 +101,10 @@ def global_quotes(group: str = "index") -> list[dict]:
     def _round() -> list[dict]:
         rows = sina.global_quotes(codes, f"global_{group}")
         if group == "index":
-            # 新浪没有的标的从东财补：韩国 KOSPI。东财限流/502 时少这一行，别拖垮整组。
-            kospi = eastmoney.global_index_quote("100.KS11", "韩国KOSPI")
+            # 新浪没有的标的从东财补：韩国 KOSPI。push2 系对云 runner/本机掐断时
+            # 再退 Yahoo；两个源都挂就少这一行，别拖垮整组。
+            kospi = (eastmoney.global_index_quote("100.KS11", "韩国KOSPI")
+                     or external.yahoo_index_quote("^KS11", "韩国KOSPI"))
             if kospi:
                 rows = [*rows, kospi]
         return rows
