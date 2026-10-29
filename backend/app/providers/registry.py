@@ -1,6 +1,7 @@
 """Provider 路由：同一能力的主备切换 + 数据源矩阵健康状态"""
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta
 
 from .. import db
@@ -93,9 +94,25 @@ def boards(kind: str = "industry") -> list[dict]:
 
 # ---------------------------------------------------------------- 新增能力包装
 def global_quotes(group: str = "index") -> list[dict]:
-    codes = [c for c, _n, _g in sina.GLOBAL_INDEXES] if group == "index" else \
-        [c for c, _n, _g in sina.COMMODITIES]
-    return sina.global_quotes(codes, f"global_{group}")
+    spec = sina.GLOBAL_INDEXES if group == "index" else sina.COMMODITIES
+    # 东财来源的代码（见 sina.GLOBAL_FROM_EM）不能进新浪的组表请求，会触发风控整组连坐
+    codes = [c for c, _n, _g in spec if c not in sina.GLOBAL_FROM_EM]
+
+    def _round() -> list[dict]:
+        rows = sina.global_quotes(codes, f"global_{group}")
+        if group == "index":
+            # 新浪没有的标的从东财补：韩国 KOSPI。东财限流/502 时少这一行，别拖垮整组。
+            kospi = eastmoney.global_index_quote("100.KS11", "韩国KOSPI")
+            if kospi:
+                rows = [*rows, kospi]
+        return rows
+
+    rows = _round()
+    if not rows:
+        # 新浪偶发整组回 hq_str_sys_auth="FAILED"（HTTP 200，重试逻辑不触发），空了再试一轮
+        time.sleep(0.8)
+        rows = _round()
+    return rows
 
 
 def commodity_quotes() -> list[dict]:

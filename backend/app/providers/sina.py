@@ -176,12 +176,18 @@ GLOBAL_INDEXES = [
     ("gb_$inx", "标普500", "美股"),
     ("rt_hkHSI", "恒生指数", "港股"),
     ("int_nikkei", "日经225", "亚太"),
+    # 新浪没有 KOSPI：这行只当分组/命名的规范源，行情由东财补（registry.global_quotes）
+    ("100.KS11", "韩国KOSPI", "亚太"),
     ("int_ftse", "英国富时100", "欧洲"),
     ("int_hangseng", "恒生指数(简)", "亚太"),
     ("DINIW", "美元指数", "汇率"),
     ("fx_susdcnh", "离岸人民币", "汇率"),
     ("hf_CHA50CFD", "富时A50期货", "中国"),
 ]
+
+# 这些代码新浪没有，行情由东财补；绝不能混进组表请求——实测 100.KS11 会触发
+# 新浪风控 hq_str_sys_auth="FAILED"，整组（含其他正常代码）一起被拒
+GLOBAL_FROM_EM = {"100.KS11"}
 
 COMMODITIES = [
     ("hf_CL", "纽约原油", "能源"),

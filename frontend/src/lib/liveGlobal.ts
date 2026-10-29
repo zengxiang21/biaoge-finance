@@ -26,11 +26,12 @@ const TENCENT_OF: Record<string, string> = {
   DINIW: "whUSDX",
 };
 
-/** 腾讯没有的外围标的 → 东财 secid（市场.代码） */
+/** 腾讯没有的外围标的 → 东财 secid（市场.代码）；后端行代码就是东财 secid 本身 */
 const EM_OF: Record<string, string> = {
   int_nikkei: "100.N225",
   int_ftse: "100.FTSE",
   fx_susdcnh: "133.USDCNH",
+  "100.KS11": "100.KS11",
 };
 
 export type LivePatch = {

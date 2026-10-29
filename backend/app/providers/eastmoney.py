@@ -17,11 +17,57 @@ P = "eastmoney"
 REFERER = "http://quote.eastmoney.com/"
 EX = "http://push2ex.eastmoney.com"
 HIS = "http://push2his.eastmoney.com"
+P2 = "https://push2.eastmoney.com"
 UT = "7eea3edcaed734bea9cbfc24409ed989"
 DC = "https://datacenter-web.eastmoney.com/api/data/v1/get"
 NOTICE = "https://np-anotice-stock.eastmoney.com/api/security/ann"
 FAST = "https://np-listapi.eastmoney.com/comm/web/getFastNewsList"
 RANK = "https://emappdata.eastmoney.com/stockrank/getAllCurrentList"
+
+
+def global_index_quote(secid: str, name: str) -> dict | None:
+    """东财全球指数现货报价，补新浪没有的外围标的（如韩国 KOSPI 100.KS11）。
+    行字段口径与 sina.global_quotes 对齐。本机网络对 push2 限流严重，
+    失败返回 None 让调用方少一行即可，不抛错拖垮整组行情。"""
+    try:
+        raw = fetch(f"{P2}/api/qt/ulist.np/get", provider=P, capability="global_index",
+                    referer=REFERER, params={
+                        "secids": secid,
+                        "fields": "f1,f2,f3,f4,f12,f13,f14,f15,f16,f17,f18,f124",
+                    })
+    except ProviderError:
+        return None
+    for d in ((raw or {}).get("data") or {}).get("diff") or []:
+        digits = d.get("f1")
+        price = _scaled(d.get("f2"), digits)
+        if price is None or price <= 0:
+            continue
+        ts = d.get("f124")
+        dt = datetime.fromtimestamp(ts) if isinstance(ts, (int, float)) and ts > 0 else None
+        return {
+            "code": f"{d.get('f13')}.{d.get('f12')}",
+            "name": name,
+            "price": price,
+            "change_price": _scaled(d.get("f4"), digits),
+            "change_percent": _scaled(d.get("f3"), 100),
+            "open": _scaled(d.get("f17"), digits),
+            "high": _scaled(d.get("f15"), digits),
+            "low": _scaled(d.get("f16"), digits),
+            "prev_close": _scaled(d.get("f18"), digits),
+            "amount": None,
+            "date": dt.strftime("%Y-%m-%d") if dt else None,
+            "time": dt.strftime("%H:%M:%S") if dt else None,
+        }
+    return None
+
+
+def _scaled(v: Any, digits: int) -> float | None:
+    """东财价格按 f1 的位数缩放，涨跌幅 f3 固定按 100 缩放；空值/占位符 '-' 归 None"""
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return x / (10 ** digits)
 
 
 def _pool(endpoint: str, date: str, pagesize: int = 200, pageindex: int = 0,
