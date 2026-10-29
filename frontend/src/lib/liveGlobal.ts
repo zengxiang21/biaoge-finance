@@ -202,12 +202,27 @@ const liveVals = (groups: GlobalGroup[]): number[] =>
 export function applyLive(data: GlobalIndexResult, live: GlobalLive | null): GlobalIndexResult {
   if (!live) return data;
   const patchQuote = patchQuoteOf(live);
-  const groups = mergeGroups(data.groups, live);
-  const vals = liveVals(groups);
+  // payload 缺行但浏览器直连东财拿到了（云 runner 上 push2 可能全挂）：补进亚太组。
+  // emCache 会让这一行一旦拿到就稳定在，不会随单次东财抖动闪没
+  let groups = data.groups;
+  let rows = data.rows;
+  const p = live.quotes["100.KS11"];
+  if (p && !rows.some((r) => r.code === "100.KS11")) {
+    const row: GlobalQuote = {
+      code: "100.KS11", name: "韩国KOSPI", price: p.price,
+      change_price: p.change_price, change_percent: p.change_percent,
+      open: p.open, high: p.high, low: p.low, prev_close: p.prev_close,
+      amount: null, date: p.date, time: p.time,
+    };
+    rows = [...rows, row];
+    groups = groups.map((g) => (g.key === "亚太" ? { ...g, rows: [...g.rows, row] } : g));
+  }
+  const merged = mergeGroups(groups, live);
+  const vals = liveVals(merged);
   return {
     ...data,
-    groups,
-    rows: data.rows.map(patchQuote),
+    groups: merged,
+    rows: rows.map(patchQuote),
     aShare: mergeAShare(data.aShare, live),
     riskOn: vals.length ? round2(vals.reduce((s, v) => s + v, 0) / vals.length) : data.riskOn,
   };

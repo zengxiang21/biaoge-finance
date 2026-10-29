@@ -17,7 +17,6 @@ P = "eastmoney"
 REFERER = "http://quote.eastmoney.com/"
 EX = "http://push2ex.eastmoney.com"
 HIS = "http://push2his.eastmoney.com"
-P2 = "https://push2.eastmoney.com"
 UT = "7eea3edcaed734bea9cbfc24409ed989"
 DC = "https://datacenter-web.eastmoney.com/api/data/v1/get"
 NOTICE = "https://np-anotice-stock.eastmoney.com/api/security/ann"
@@ -25,39 +24,50 @@ FAST = "https://np-listapi.eastmoney.com/comm/web/getFastNewsList"
 RANK = "https://emappdata.eastmoney.com/stockrank/getAllCurrentList"
 
 
+P2_HOSTS = (
+    "https://push2.eastmoney.com",
+    "https://push2delay.eastmoney.com",
+    "https://33.push2.eastmoney.com",
+    "https://90.push2.eastmoney.com",
+    "http://push2.eastmoney.com",
+)
+
+
 def global_index_quote(secid: str, name: str) -> dict | None:
     """东财全球指数现货报价，补新浪没有的外围标的（如韩国 KOSPI 100.KS11）。
-    行字段口径与 sina.global_quotes 对齐。本机网络对 push2 限流严重，
-    失败返回 None 让调用方少一行即可，不抛错拖垮整组行情。"""
-    try:
-        raw = fetch(f"{P2}/api/qt/ulist.np/get", provider=P, capability="global_index",
-                    referer=REFERER, params={
-                        "secids": secid,
-                        "fields": "f1,f2,f3,f4,f12,f13,f14,f15,f16,f17,f18,f124",
-                    })
-    except ProviderError:
-        return None
-    for d in ((raw or {}).get("data") or {}).get("diff") or []:
-        digits = d.get("f1")
-        price = _scaled(d.get("f2"), digits)
-        if price is None or price <= 0:
+    行字段口径与 sina.global_quotes 对齐。push2 系域名对不同出口 IP 的限流程度
+    不一（本机 TLS 掐断、云 runner 常年 502），挨个镜像试，全挂返回 None 让
+    调用方少一行即可，不抛错拖垮整组行情。"""
+    for host in P2_HOSTS:
+        try:
+            raw = fetch(f"{host}/api/qt/ulist.np/get", provider=P, capability="global_index",
+                        referer=REFERER, params={
+                            "secids": secid,
+                            "fields": "f1,f2,f3,f4,f12,f13,f14,f15,f16,f17,f18,f124",
+                        }, timeout=5, retries=0)
+        except ProviderError:
             continue
-        ts = d.get("f124")
-        dt = datetime.fromtimestamp(ts) if isinstance(ts, (int, float)) and ts > 0 else None
-        return {
-            "code": f"{d.get('f13')}.{d.get('f12')}",
-            "name": name,
-            "price": price,
-            "change_price": _scaled(d.get("f4"), digits),
-            "change_percent": _scaled(d.get("f3"), 100),
-            "open": _scaled(d.get("f17"), digits),
-            "high": _scaled(d.get("f15"), digits),
-            "low": _scaled(d.get("f16"), digits),
-            "prev_close": _scaled(d.get("f18"), digits),
-            "amount": None,
-            "date": dt.strftime("%Y-%m-%d") if dt else None,
-            "time": dt.strftime("%H:%M:%S") if dt else None,
-        }
+        for d in ((raw or {}).get("data") or {}).get("diff") or []:
+            digits = d.get("f1")
+            price = _scaled(d.get("f2"), digits)
+            if price is None or price <= 0:
+                continue
+            ts = d.get("f124")
+            dt = datetime.fromtimestamp(ts) if isinstance(ts, (int, float)) and ts > 0 else None
+            return {
+                "code": f"{d.get('f13')}.{d.get('f12')}",
+                "name": name,
+                "price": price,
+                "change_price": _scaled(d.get("f4"), digits),
+                "change_percent": _scaled(d.get("f3"), 100),
+                "open": _scaled(d.get("f17"), digits),
+                "high": _scaled(d.get("f15"), digits),
+                "low": _scaled(d.get("f16"), digits),
+                "prev_close": _scaled(d.get("f18"), digits),
+                "amount": None,
+                "date": dt.strftime("%Y-%m-%d") if dt else None,
+                "time": dt.strftime("%H:%M:%S") if dt else None,
+            }
     return None
 
 
